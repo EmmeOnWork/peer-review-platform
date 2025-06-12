@@ -1,0 +1,61 @@
+@startuml
+title Sequence Diagram - Student Submits a Peer Review (HTTP)
+
+actor Student
+participant FrontendApp as "Vue.js SPA\n(in Browser)"
+participant NginxProxy as "Nginx\n(Frontend & API Proxy)"
+participant ReviewService as "Review Service"
+participant AuthService as "Authentication Service\n(for public key)"
+database DBReview as "MongoDB\n(Reviews DB)" 
+
+Student -> FrontendApp: Views assigned review, completes evaluation, and submits
+activate FrontendApp
+FrontendApp -> NginxProxy: PUT /api/reviews/{reviewId} (HTTP)\n{body: reviewSubmissionData, header: Authorization: Bearer authToken}
+activate NginxProxy
+
+NginxProxy -> ReviewService: PUT /{reviewId} (HTTP)\n{body: reviewSubmissionData, header: Authorization: Bearer authToken}
+activate ReviewService
+
+ReviewService -> ReviewService: token = extractFromHeader(authToken)
+
+group Token Decoding and Validation
+    note over ReviewService: Assumes public key already fetched.
+    ReviewService -> ReviewService: tokenInfo = decode_token_with_public_key(token)
+end
+
+alt Valid Token and User Authorized (Student who is assigned)
+    ReviewService -> ReviewService: studentSerialNumber = tokenInfo["user_id"]
+
+    ReviewService -> DBReview: findOneByReviewId(reviewId)
+    activate DBReview
+    DBReview --> ReviewService: {peerReviewAssignment} / null
+    deactivate DBReview
+
+    alt PeerReviewAssignment Found AND student is reviewer AND status is 'pending'
+        ReviewService -> ReviewService: updatedReviewData = prepareUpdatedReview(\n  peerReviewAssignment, \n  reviewSubmissionData.evaluation, \n  reviewedAt=now(), \n  status='completed')
+
+        ReviewService -> DBReview: updateOne(reviewId, updatedReviewData)
+        activate DBReview
+        DBReview --> ReviewService: {update_success_status}
+        deactivate DBReview
+
+        alt Update Successful
+            ReviewService -> ReviewService: reviewResponse = createPeerReviewResponse(updatedReviewData)
+            ReviewService --> NginxProxy: HTTP 200 OK {reviewResponse}
+        else Update Failed
+            ReviewService --> NginxProxy: HTTP 500 Internal Server Error\n{"error": "Failed to save review"}
+        end
+    else PeerReviewAssignment Not Found, Mismatch, or Not Pending
+        ReviewService --> NginxProxy: HTTP 404/403/400\n{"error": "Review issue"}
+    end
+else Invalid Token or Unauthorized
+    ReviewService --> NginxProxy: HTTP 401 Unauthorized\n{"error": "Invalid token"}
+end
+
+deactivate ReviewService
+NginxProxy --> FrontendApp: HTTP Response (200 OK or Error)
+deactivate NginxProxy
+FrontendApp -> Student: Display review submission confirmation / error
+deactivate FrontendApp
+
+@enduml

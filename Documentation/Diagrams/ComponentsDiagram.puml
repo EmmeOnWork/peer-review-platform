@@ -1,0 +1,91 @@
+@startuml
+skinparam componentStyle rectangle
+title Component Diagram – Peer Review System (HTTP & Nginx Proxy)
+
+package "User Device" {
+  component "Vue.js SPA\n(Frontend in Browser)" as FrontendApp
+}
+
+package "Kubernetes Cluster (Minikube)" {
+  
+  component "Ingress Controller" as Ingress
+  
+  component "Nginx\n(Web Server &\nAPI Reverse Proxy)" as NginxProxy
+
+  package "Backend Microservices" {
+    component "Authentication Service" as Auth
+    component "Assignment Service" as Assignment
+    component "Submission Service" as Submission
+    component "Review Service" as Review
+    component "Reporting Service" as Reporting
+  }
+
+  package "Data Stores" {
+    database "PostgreSQL\n(Users)" as DBAuth
+    database "MongoDB\n(Assignments)" as DBAssignment
+    database "MongoDB\n(Submissions)" as DBSubmission
+    database "MongoDB\n(Reviews)" as DBReview
+    component "MinIO\n(Object Storage)" as MinIOStorage
+  }
+}
+
+
+' === Flusso Utente e API ===
+FrontendApp --> Ingress : HTTP (Richieste Web)
+Ingress --> NginxProxy : HTTP (Instradamento al Nginx Proxy)
+
+NginxProxy --> FrontendApp : HTTP (File SPA) ' Nginx serve la SPA al frontend
+NginxProxy --> Auth : API HTTP (Proxy)
+NginxProxy --> Assignment : API HTTP (Proxy)
+NginxProxy --> Submission : API HTTP (Proxy)
+NginxProxy --> Review : API HTTP (Proxy)
+NginxProxy --> Reporting : API HTTP (Proxy)
+
+
+' === Accesso ai Database ===
+Auth --> DBAuth : SQL
+Assignment --> DBAssignment : MongoDB Driver
+Submission --> DBSubmission : MongoDB Driver
+Review --> DBReview : MongoDB Driver
+
+
+' === Interazioni con Object Storage ===
+Submission --> MinIOStorage : S3 API (HTTP)
+
+
+' === Chiamate API Inter-Servizio (HTTP, interne al cluster) ===
+' Queste chiamate avvengono direttamente tra i servizi.
+Review -[#blue]-> Assignment : API HTTP (interna)
+Review -[#blue]-> Submission : API HTTP (interna)
+Submission -[#blue]-> Assignment : API HTTP (interna)
+Reporting -[#blue]-> Assignment : API HTTP (interna)
+Reporting -[#blue]-> Submission : API HTTP (interna)
+Reporting -[#blue]-> Review : API HTTP (interna)
+
+
+' === Dipendenze per Validazione JWT (Recupero Chiave Pubblica) ===
+' Tutti i servizi che necessitano di validare un token potrebbero recuperare la chiave pubblica da Auth.
+' Questa è una chiamata API HTTP interna al servizio Auth.
+Assignment .[#green].> Auth : API HTTP (interna, /public_key)
+Submission .[#green].> Auth : API HTTP (interna, /public_key)
+Review .[#green].> Auth : API HTTP (interna, /public_key)
+Reporting .[#green].> Auth : API HTTP (interna, /public_key)
+
+
+note right of Auth
+  **Validazione JWT:**
+  I servizi backend validano i JWT.
+  Possono farlo recuperando la chiave
+  pubblica dal servizio di Autenticazione
+  tramite una chiamata API HTTP interna
+  all'endpoint `/public_key`.
+end note
+
+note bottom of NginxProxy
+  **Nginx (Web Server & API Reverse Proxy):**
+  - Serve i file statici della Vue.js SPA.
+  - Inoltra le chiamate API dal Frontend
+    ai microservizi backend appropriati.
+end note
+
+@enduml

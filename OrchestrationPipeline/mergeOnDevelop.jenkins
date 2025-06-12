@@ -1,0 +1,17 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    def developBranch = 'develop'
+    def featureBranch = env.BRANCH_NAME ?: 'feature-branch'
+
+    try {
+        sh "git checkout ${featureBranch}"
+        sh "git merge origin/${developBranch}"
+        sh "git pull origin ${featureBranch}" // <-- aggiungi questa riga
+        sh "git push origin ${featureBranch}"
+        echo "Merge LOCALE di develop su ${featureBranch} riuscito. Ora è possibile testare come se fossi su develop+feature."
+    } catch (Exception e) {
+        echo "Conflitto durante il merge di develop su ${featureBranch}: ${e.message}"
+        error "Merge bloccato per conflitti. Risolvere manualmente prima di continuare."
+    }
+}
+

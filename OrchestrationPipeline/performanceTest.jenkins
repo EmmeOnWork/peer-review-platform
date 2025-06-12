@@ -1,0 +1,103 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+
+    // Parametri configurabili
+    def TARGET_NAMESPACE
+    def TARGET_HOST_URL
+
+    if (env.BRANCH_NAME in ["main", "origin/main", "master", "origin/master"]) {
+        TARGET_NAMESPACE = 'production'
+        TARGET_HOST_URL = 'https://peer-review'
+    } else {
+        TARGET_NAMESPACE = 'pre-release'
+        TARGET_HOST_URL = 'https://pre-release.peer-review'
+    }
+    def JOB_TEMPLATE = 'Tests/performance_test/k8s/production/performance_test.yaml'
+
+    try {
+        echo "Avvio del Job di performance test nel namespace: ${TARGET_NAMESPACE}"
+
+        // Pulisce eventuali Job precedenti
+        sh "kubectl delete job locust-loadtest-job --namespace ${TARGET_NAMESPACE} --ignore-not-found=true"
+
+        // Recupera dinamicamente l'IP del controller Ingress
+        def ingressIp = sh(
+            script: "kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.spec.clusterIP}'",
+            returnStdout: true
+        ).trim()
+        if (!ingressIp) {
+            error "ERRORE: Impossibile trovare il ClusterIP del servizio 'ingress-nginx-controller' nel namespace 'ingress-nginx'."
+        }
+        echo "Trovato Ingress Controller IP: ${ingressIp}"
+
+        // Esporta variabili e applica il template del Job
+        sh """
+            export INGRESS_CONTROLLER_IP=${ingressIp}
+            export TARGET_HOST_URL=${TARGET_HOST_URL}
+            envsubst < ${JOB_TEMPLATE} | kubectl apply -f - --namespace ${TARGET_NAMESPACE}
+        """
+
+        echo "Job avviato. In attesa del completamento del test..."
+
+        timeout(time: 7, unit: 'MINUTES') {
+            waitUntil {
+                def podPhases = sh(
+                    script: "kubectl get pods -n ${TARGET_NAMESPACE} -l job-name=locust-loadtest-job -o jsonpath='{.items[*].status.phase}' || echo ''",
+                    returnStdout: true
+                ).trim().split(' ')
+                echo "Stati pod locust-loadtest-job: ${podPhases}"
+                // Se almeno un pod è Succeeded, il test è passato
+                if (podPhases.any { it == "Succeeded" }) {
+                    return true
+                }
+                // Se tutti i pod sono Failed, il test è fallito
+                if (podPhases.every { it == "Failed" } && podPhases.size() > 0) {
+                    echo "Log del job locust-loadtest-job:"
+                    sh "kubectl logs job/locust-loadtest-job -n ${TARGET_NAMESPACE} || true"
+                    error("Job 'locust-loadtest-job' fallito.")
+                }
+                // Altrimenti attendi ancora
+                return false
+            }
+        }
+
+        echo "Job completato con successo. Recupero log..."
+        sh "kubectl logs job/locust-loadtest-job -n ${TARGET_NAMESPACE} || true"
+
+    } catch (e) {
+        echo "Performance test fallito o Job terminato con errore."
+        sh """
+            echo "--- Log del Pod di test fallito ---"
+            POD_NAME=\$(kubectl get pods --namespace ${TARGET_NAMESPACE} -l job-name=locust-loadtest-job -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+            if [ -n "\$POD_NAME" ]; then
+                kubectl logs \$POD_NAME --namespace ${TARGET_NAMESPACE}
+            else
+                echo "Nessun pod trovato per il Job, impossibile recuperare i log."
+            fi
+        """
+        // Rollback solo se siamo su production
+        if (TARGET_NAMESPACE == 'production') {
+            echo "Eseguo rollback dei deployment in production..."
+            def deployments = sh(
+                script: "kubectl get deployments -n production -o jsonpath='{.items[*].metadata.name}'",
+                returnStdout: true
+            ).trim().split(' ')
+            deployments.each { dep ->
+                if (dep?.trim()) {
+                    echo "Rollback deployment: ${dep}"
+                    sh "kubectl rollout undo deployment/${dep} -n production || true"
+                    sh "kubectl rollout status deployment/${dep} -n production || true"
+                }
+            }
+        }
+        error("La pipeline è stata interrotta a causa del fallimento del test di carico.")
+    } finally {
+        echo "Pulizia delle risorse del Job..."
+        sh "kubectl delete job locust-loadtest-job --namespace ${TARGET_NAMESPACE} --ignore-not-found=true"
+        // Elimina il namespace solo se sei su develop/pre-release
+        if (TARGET_NAMESPACE == 'pre-release') {
+            echo "Eliminazione del namespace pre-release..."
+            sh "kubectl delete namespace pre-release --wait=true || true"
+        }
+    }
+}

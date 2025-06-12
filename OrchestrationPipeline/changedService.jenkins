@@ -1,0 +1,92 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    echo "Rilevamento modifiche nei servizi..."
+    def targetBranch = env.TARGET_BRANCH ?: 'develop' // Default a 'develop' se non impostato
+    sh "git fetch origin ${targetBranch}"
+    def diffOutput = sh(
+        script: "git diff --name-only origin/${targetBranch}...HEAD",
+        returnStdout: true
+    ).trim()
+    echo "File modificati rispetto a origin/${targetBranch}:\n${diffOutput}"
+    def allChanges = diffOutput ? diffOutput.split("\n"): []
+    def changedServices = []
+
+    // Funzione per ottenere i servizi (cartelle) dentro Backend usando solo sh
+    def getBackendServices = {
+        if (!fileExists('Backend')) {
+            echo "Attenzione: La directory 'Backend' non esiste o non è una directory."
+            return []
+        }
+        def subDirs = sh(script: "ls -1 Backend 2>/dev/null || true", returnStdout: true).trim()
+        if (!subDirs) {
+            return []
+        }
+        return subDirs.split('\n').collect { "Backend/${it}" }
+    }
+
+    // Funzione per ottenere le sottocartelle di Tests
+    def getTestsSubdirs = {
+        if (!fileExists('Tests')) {
+            echo "Attenzione: La directory 'Tests' non esiste o non è una directory."
+            return []
+        }
+        def subDirs = sh(script: "ls -1 Tests 2>/dev/null || true", returnStdout: true).trim()
+        if (!subDirs) {
+            return []
+        }
+        return subDirs.split('\n').collect { "Tests/${it}" }
+    }
+
+    // Funzione per verificare se ci sono cambiamenti dentro un percorso (file o cartella)
+    def isChanged = { String path ->
+        allChanges.any {
+            it == path || it.startsWith(path + "/")
+        }
+    }
+
+    // Controllo Frontend come intera cartella singola
+    if (fileExists('Frontend')) {
+        if (isChanged('Frontend')) {
+            changedServices << 'Frontend/'
+        }
+    } else {
+        echo "Attenzione: La directory 'Frontend' non esiste o non è una directory."
+    }
+
+    // Controllo Tests per ogni sottocartella separatamente
+    if (fileExists('Tests')) {
+        def testsSubdirs = getTestsSubdirs()
+        testsSubdirs.each { subdir ->
+            if (isChanged(subdir)) {
+                changedServices << subdir
+            }
+        }
+        // NON aggiunge più la cartella Tests/ intera!
+    } else {
+        echo "Attenzione: La directory 'Tests' non esiste o non è una directory."
+    }
+
+    // Controllo Backend per ogni servizio separatamente
+    def backendServices = getBackendServices()
+    backendServices.each { servicePath ->
+        if (isChanged(servicePath)) {
+            changedServices << servicePath
+        }
+    }
+    // Controllo Ingress come cartella singola
+    if (fileExists('Ingress')) {
+        if (isChanged('Ingress')) {
+            changedServices << 'Ingress/'
+        }
+    } else {
+        echo "Attenzione: La directory 'Ingress' non esiste o non è una directory."
+    }
+    if (changedServices.isEmpty()) {
+        echo "Nessun servizio modificato rilevato."
+    } else {
+        echo "Servizi modificati rilevati:\n - ${changedServices.join('\n - ')}"
+    }
+    // Imposto variabile d'ambiente per le fasi successive
+    env.CHANGED_SERVICES = changedServices.join(',')
+    echo "Variabile d'ambiente CHANGED_SERVICES impostata a: ${env.CHANGED_SERVICES}"
+}

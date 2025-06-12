@@ -1,0 +1,35 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    def developBranch = 'develop'
+    def currentBranch = env.BRANCH_NAME
+    def getCurrentBranch = {
+        if (currentBranch == null || currentBranch.isEmpty()) {
+            def branch = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+            if (branch == 'HEAD') {
+                error("Impossibile determinare il branch corrente in modo affidabile (detached HEAD). Push annullato.")
+            }
+            echo "BRANCH_NAME non impostato, dedotto branch corrente: ${branch}"
+            return branch
+        }
+        return currentBranch
+    }
+
+    def isDevelopBranch = { String branch ->
+        branch == developBranch
+    }
+
+    try {
+        def branchToPush = getCurrentBranch()
+        if (isDevelopBranch(branchToPush)) {
+            echo "Il branch corrente (${branchToPush}) è già '${developBranch}'. Eseguo il push diretto."
+        } else {
+            echo "Il branch corrente è '${branchToPush}'. Questo script è pensato per fare il push del branch attuale su 'origin/${developBranch}'."
+            echo "Assicurati che '${branchToPush}' sia aggiornato e pronto per essere pushato su '${developBranch}'."
+        }
+        echo "Tentativo di push del branch '${branchToPush}' su 'origin/${developBranch}'..."
+        sh "git push origin HEAD:${developBranch}"
+        echo "Push del branch '${branchToPush}' su 'origin/${developBranch}' completato con successo."
+    } catch (Exception e) {
+        error "Errore durante il push su 'origin/${developBranch}': ${e.message}. Controlla i log per i dettagli."
+    }
+}

@@ -1,0 +1,60 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    def SOURCE_BRANCH = 'develop'
+    def TARGET_BRANCH = 'master' // Cambia in 'main' se necessario
+
+    // Funzione per eseguire il checkout di un branch usando solo step pipeline
+    def checkoutBranch = { String branch ->
+        if (sh(script: "git checkout ${branch}", returnStatus: true) != 0) {
+            error "Errore nel checkout di '${branch}'."
+        }
+    }
+
+    // Funzione per fare fetch da origin
+    def fetchOrigin = {
+        if (sh(script: "git fetch origin", returnStatus: true) != 0) {
+            error "Errore durante il fetch da origin."
+        }
+    }
+
+    // Funzione per fare pull da origin
+    def pullOrigin = { String branch ->
+        if (sh(script: "git pull origin ${branch}", returnStatus: true) != 0) {
+            error "Errore nel pull da origin/${branch}."
+        }
+    }
+
+    // Funzione per eseguire il merge tra due branch
+    def mergeBranches = { String fromBranch, String toBranch ->
+        if (sh(script: "git merge origin/${fromBranch}", returnStatus: true) != 0) {
+            error "Merge fallito: conflitti da risolvere manualmente."
+        }
+    }
+
+    // Funzione per pushare su origin
+    def pushOrigin = { String branch ->
+        if (sh(script: "git push origin ${branch}", returnStatus: true) != 0) {
+            error "Errore nel push su origin/${branch}."
+        }
+    }
+
+    echo "Checkout del repository..."
+    checkout scm
+
+    echo "Fetch di tutti i branch remoti..."
+    fetchOrigin()
+
+    echo "Checkout del branch target '${TARGET_BRANCH}'..."
+    checkoutBranch(TARGET_BRANCH)
+
+    echo "Pull delle ultime modifiche su '${TARGET_BRANCH}'..."
+    pullOrigin(TARGET_BRANCH)
+
+    echo "Merge da '${SOURCE_BRANCH}' in '${TARGET_BRANCH}'..."
+    mergeBranches(SOURCE_BRANCH, TARGET_BRANCH)
+
+    echo "Push del branch '${TARGET_BRANCH}' aggiornato..."
+    pushOrigin(TARGET_BRANCH)
+
+    echo "Merge completato con successo: ${SOURCE_BRANCH} → ${TARGET_BRANCH}"
+}

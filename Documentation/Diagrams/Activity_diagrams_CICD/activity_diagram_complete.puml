@@ -1,0 +1,140 @@
+@startuml
+title Activity Diagram: CI/CD Pipeline Mapped to Git Branching Strategy (Revised)
+
+|Developer|
+start
+
+partition "Feature Branch Workflow" {
+    :Writes code (Frontend/Backend);
+    :Commits and pushes changes to Feature Branch;
+
+    |Git/GitHub|
+    :Receives push to Feature Branch;
+    :Triggers Jenkins (Feature Pipeline);
+
+    |Jenkins (CI/CD Pipeline)|
+    :Pipeline for Feature Branch starts;
+    :Checkout source code from Feature Branch;
+
+    fork
+      group Frontend Build & Unit/Component Tests
+        :Build Vue.js application;
+        :Run Frontend Unit/Component tests;
+        if (Frontend tests pass?) then (yes)
+          ' Successfully tested
+        else (no)
+          :Notify developer of Frontend test failure on Feature Branch;
+          end
+        endif
+      end group
+    fork again
+      group Backend Build & Unit/Intra-Service Tests
+        :Build Backend microservice(s);
+        :Run Backend Unit/Component tests (pytest);
+        :Run Backend Intra-Service Integration Tests (e.g., with Testcontainers);
+        if (Backend tests pass?) then (yes)
+          ' Successfully tested
+        else (no)
+          :Notify developer of Backend test failure on Feature Branch;
+          end
+        endif
+      end group
+    end fork
+
+    |Jenkins (CI/CD Pipeline)|
+    if (All tests on Feature Branch pass?) then (yes)
+      :Feature Branch is stable and ready for integration into Develop;
+      |Developer|
+      :Merges/Integrates Feature Branch code into Develop Branch;
+      '(Process for integrating feature into develop)
+    else (no)
+      :Developer addresses issues on Feature Branch;
+      end
+    endif
+}
+
+partition "Develop Branch Workflow \n (Staging Environment)" {
+    |Git/GitHub|
+    :Receives push/merge to Develop Branch;
+    :Triggers Jenkins (Develop Pipeline);
+
+    |Jenkins (CI/CD Pipeline)|
+    :Pipeline for Develop Branch starts;
+    :Checkout source code from Develop Branch;
+    note right: This code has passed unit & intra-service tests from feature branches.
+
+    fork
+      group Frontend Image Build (Develop)
+        :Build Frontend Docker image (Nginx + Vue.js);
+        |Docker Registry|
+        :Push Frontend Docker image (tagged for develop/staging);
+      end group
+    fork again
+      group Backend Image Build (Develop)
+        :Build Backend Docker image(s);
+        |Docker Registry|
+        :Push Backend Docker image(s) (tagged for develop/staging);
+      end group
+    end fork
+
+    |Jenkins (CI/CD Pipeline)|
+    :Deploy to Develop/Staging Kubernetes Environment;
+    |Kubernetes Cluster\n (Develop/Staging Environment)|
+    :Pulls new images;
+    :Deploys/Updates containers;
+    :Develop/Staging environment updated;
+
+    |Jenkins (CI/CD Pipeline)|
+    :Run Inter-Service Integration Tests & E2E Smoke Tests against Develop/Staging Environment;
+    if (Inter-service Integration tests pass on Develop/Staging?) then (yes)
+      :Develop Branch is stable;
+      :Notify designated Developer(s)/Team Lead: "Code on Develop ready for review and promotion to Main";
+      |Developer|
+      :Initiates code review process for merging Develop to Main;
+      '(Approval & merge to Main happens here after review - manual step)
+    else (no)
+      |Jenkins (CI/CD Pipeline)|
+      :Notify ALL Developers of Inter-Service Integration test failure on Develop/Staging;
+      end 
+    endif
+}
+
+' Manual step: Code from Develop is merged into Main by a developer after review & approval
+
+partition "Main Branch Workflow \n (Production Environment)" {
+    |Git/GitHub|
+    :Receives push/merge to Main Branch;
+    :Triggers Jenkins (Main/Production Pipeline);
+
+    |Jenkins (CI/CD Pipeline)|
+    :Pipeline for Main Branch starts;
+    :Checkout source code from Main Branch;
+    note right: This code has passed all prior tests (unit, intra-service, inter-service).
+
+    fork
+      group Frontend Image Build/Tag (Production)
+        :(Re)Build or Re-tag Frontend Docker image for Production;
+        |Docker Registry|
+        :Push Frontend Docker image (tagged for production);
+      end group
+    fork again
+      group Backend Image Build/Tag (Production)
+        :(Re)Build or Re-tag Backend Docker image(s) for Production;
+        |Docker Registry|
+        :Push Backend Docker image(s) (tagged for production);
+      end group
+    end fork
+
+    |Jenkins (CI/CD Pipeline)|
+    :Deploy to Production Kubernetes Environment;
+    |Kubernetes Cluster \n (Production Environment)|
+    :Pulls new images;
+    :Deploys/Updates containers;
+    :Production application updated;
+
+    |Jenkins (CI/CD Pipeline)|
+    :Notify successful deployment to Production;
+}
+
+stop
+@enduml

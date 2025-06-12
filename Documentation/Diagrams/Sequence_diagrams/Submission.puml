@@ -1,0 +1,70 @@
+@startuml
+title Sequence Diagram - Student Submits Work (with MinIO) (HTTP)
+
+actor Student
+participant FrontendApp as "Vue.js SPA\n(in Browser)"
+participant NginxProxy as "Nginx\n(Frontend & API Proxy)"
+participant SubmissionService as "Submission Service"
+participant AuthService as "Authentication Service\n(for public key)"
+participant AssignmentService as "Assignment Service\n(for validation)"
+database DBSubmission as "MongoDB\n(Submissions DB)"
+participant MinIO as "MinIO\n(S3 Object Store)"
+
+Student -> FrontendApp: Selects assignment, uploads file(s), submits
+activate FrontendApp
+FrontendApp -> NginxProxy: POST /api/submissions (HTTP)\n{form-data: submissionCreateRequest, header: Authorization: Bearer authToken}
+activate NginxProxy
+
+NginxProxy -> SubmissionService: POST / (HTTP)\n{form-data: submissionCreateRequest, header: Authorization: Bearer authToken}
+activate SubmissionService
+
+SubmissionService -> SubmissionService: token = extractFromHeader(authToken)
+
+group Token Decoding and Validation
+    note over SubmissionService: Assumes public key already fetched.
+    SubmissionService -> SubmissionService: tokenInfo = decode_token_with_public_key(token)
+end
+
+alt Valid Token and User Authorized (Student role)
+    SubmissionService -> SubmissionService: studentSerialNumber = tokenInfo["user_id"]
+    SubmissionService -> SubmissionService: assignmentId = submissionCreateRequest.assignmentId
+
+    ' Optional: Validate assignment existence/status
+    SubmissionService -> AssignmentService: GET /api/assignments/{assignmentId} (HTTP via NginxProxy or direct if internal call optimized)
+    activate AssignmentService
+    note left: This could be an internal call\nif services are in same cluster\nand Nginx is configured for it,\nor another proxied call.
+    AssignmentService --> SubmissionService: {assignmentDetails} / HTTP 404 Not Found
+    deactivate AssignmentService
+
+    alt Assignment is Valid and Open
+        SubmissionService -> SubmissionService: attachmentReferences = []
+        loop for each attachment_file in submissionCreateRequest.attachments
+            SubmissionService -> MinIO: PUT object (attachment_file) (HTTP via S3 SDK)
+            activate MinIO
+            MinIO --> SubmissionService: {object_key_or_ETag}
+            deactivate MinIO
+            SubmissionService -> SubmissionService: attachmentReferences.add(object_key)
+        end
+
+        SubmissionService -> SubmissionService: submissionRecordToSave = prepareRecord(...)
+        SubmissionService -> DBSubmission: insert_one(submissionRecordToSave)
+        activate DBSubmission
+        DBSubmission --> SubmissionService: {generated_submissionId}
+        deactivate DBSubmission
+
+        SubmissionService -> SubmissionService: submissionResponse = createSubmissionResponse(...)
+        SubmissionService --> NginxProxy: HTTP 201 Created {submissionResponse}
+    else Assignment Not Valid or Closed
+        SubmissionService --> NginxProxy: HTTP 400/404/409\n{"error": "Invalid assignment"}
+    end
+else Invalid Token or Unauthorized
+    SubmissionService --> NginxProxy: HTTP 401/403\n{"error": "Invalid token"}
+end
+
+deactivate SubmissionService
+NginxProxy --> FrontendApp: HTTP Response (201 or Error)
+deactivate NginxProxy
+FrontendApp -> Student: Display submission confirmation / error
+deactivate FrontendApp
+
+@enduml

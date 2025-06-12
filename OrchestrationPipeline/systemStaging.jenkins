@@ -1,0 +1,109 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    def NAMESPACE = 'staging'  // Namespace usato per il deploy
+
+    // CREA IL NAMESPACE SE NON ESISTE CON WAIT
+    echo "Verifica e creazione namespace '${NAMESPACE}'..."
+    sh "kubectl get namespace ${NAMESPACE} || kubectl create namespace ${NAMESPACE} || true"
+    
+    // Attendi che il namespace sia effettivamente disponibile
+    timeout(time: 1, unit: 'MINUTES') {
+        waitUntil {
+            script {
+                def nsReady = sh(
+                    script: "kubectl get namespace ${NAMESPACE} -o jsonpath='{.status.phase}'",
+                    returnStdout: true
+                ).trim()
+                echo "Stato namespace '${NAMESPACE}': ${nsReady}"
+                return nsReady == 'Active'
+            }
+        }
+    }
+    echo "Namespace '${NAMESPACE}' è attivo e pronto."
+
+    try {
+        // Funzione per ottenere le directory dei servizi usando solo step pipeline
+        def getServiceDirs = {
+            def dirs = []
+            if (fileExists('Frontend')) {
+                dirs << 'Frontend'
+            }
+            if (fileExists('Backend')) {
+                def backendDirs = sh(script: "ls -1 Backend 2>/dev/null || true", returnStdout: true).trim()
+                if (backendDirs) {
+                    backendDirs.split('\n').each { svc ->
+                        if (!svc.contains('@tmp')) {
+                            dirs << "Backend/${svc}"
+                        }
+                    }
+                }
+            }
+            if (fileExists('Tests')) {
+                def testsDirs = sh(script: "ls -1 Tests 2>/dev/null || true", returnStdout: true).trim()
+                if (testsDirs) {
+                    testsDirs.split('\n').each { svc ->
+                        // Escludi performance_test
+                        if (!svc.contains('@tmp') && svc != "performance_test") {
+                            dirs << "Tests/${svc}"
+                        }
+                    }
+                }
+            }
+            return dirs
+        }
+        // Funzione per ottenere i file yaml di una directory k8s usando solo step pipeline
+        def getYamlFiles = { String k8sPath ->
+            if (fileExists(k8sPath)) {
+                def files = sh(script: "ls ${k8sPath}/*.yaml 2>/dev/null || true", returnStdout: true).trim()
+                return files ? files.split('\n').findAll { it?.trim() } : []
+            }
+            return []
+        }
+
+        def serviceDirs = getServiceDirs()
+        if (serviceDirs.isEmpty()) {
+            echo "Nessun servizio trovato per il deploy."
+            return
+        }
+        echo "Servizi trovati: ${serviceDirs.join(', ')}"
+
+        serviceDirs.each { service ->
+            def k8sPath = "${service}/k8s/${NAMESPACE}"
+            def yamlFiles = getYamlFiles(k8sPath)
+            if (yamlFiles && !yamlFiles.isEmpty()) {
+                yamlFiles.each { file ->
+                    echo "Applico ${file} su ambiente ${NAMESPACE}..."
+                    sh "kubectl apply -f ${file} --namespace=${NAMESPACE}"
+                }
+            } else {
+                error "Nessun file .yaml trovato in ${k8sPath}"
+            }
+        }
+
+        timeout(time: 3, unit: 'MINUTES') {
+            waitUntil {
+                // Prendi tutti i pod tranne quelli dei job di integrazione
+                def podStatus = sh(
+                    script: "kubectl get pods --namespace=${NAMESPACE} --no-headers | grep -v integration-tests || true",
+                    returnStdout: true
+                ).trim()
+                def lines = podStatus.readLines().findAll { it?.trim() }
+                if (lines.isEmpty()) {
+                    echo "Nessun pod (non-job) trovato. Attendo..."
+                    return false
+                }
+                def allRunning = lines.every { it.split()[2] == 'Running' }
+                if (!allRunning) {
+                    echo "Alcuni pod non-job non sono ancora Running. Attendo..."
+                }
+                return allRunning
+            }
+        }
+        echo "Tutti i pod (non-job) sono in stato Running su ${NAMESPACE}. Deploy completato."
+
+    } catch (Exception e) {
+        echo "Errore durante il deploy su ${NAMESPACE}: ${e.message}"
+        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+        error("Deploy fallito, interrompo la pipeline.")
+    }
+}

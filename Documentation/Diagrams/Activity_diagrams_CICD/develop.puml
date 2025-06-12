@@ -1,0 +1,57 @@
+@startuml
+title Activity Diagram: 2. Develop Branch Workflow (Staging Environment)
+
+' This diagram conceptually starts after the "Feature Branch Workflow"
+' where code is merged/integrated into Develop.
+
+|Git/GitHub|
+start
+note left: Triggered by push/merge to Develop Branch
+' Start of "Develop Branch Workflow" partition from original diagram
+:Receives push/merge to Develop Branch;
+:Triggers Jenkins (Develop Pipeline);
+
+|Jenkins (CI/CD Pipeline)|
+:Pipeline for Develop Branch starts;
+:Checkout source code from Develop Branch;
+note right: This code has passed unit & intra-service tests from feature branches.
+
+fork
+  group Frontend Image Build (Develop)
+    :Build Frontend Docker image (Nginx + Vue.js);
+    |Docker Registry|
+    :Push Frontend Docker image (tagged for develop/staging);
+  end group
+fork again
+  group Backend Image Build (Develop)
+    :Build Backend Docker image(s);
+    |Docker Registry|
+    :Push Backend Docker image(s) (tagged for develop/staging);
+  end group
+end fork
+
+|Jenkins (CI/CD Pipeline)|
+:Deploy to Develop/Staging Kubernetes Environment;
+|Kubernetes Cluster\n (Develop/Staging Environment)|
+:Pulls new images;
+:Deploys/Updates containers;
+:Develop/Staging environment updated;
+
+|Jenkins (CI/CD Pipeline)|
+:Run Inter-Service Integration Tests & E2E Smoke Tests against Develop/Staging Environment;
+if (Inter-service Integration tests pass on Develop/Staging?) then (yes)
+  :Develop Branch is stable;
+  :Notify designated Developer(s)/Team Lead: "Code on Develop ready for review and promotion to Main";
+  |Developer|
+  :Initiates code review process for merging Develop to Main;
+  note right: Successful review & merge triggers the "Main Branch Workflow"
+  '(Approval & merge to Main happens here after review - manual step)
+else (no)
+  |Jenkins (CI/CD Pipeline)|
+  :Notify ALL Developers of Inter-Service Integration test failure on Develop/Staging;
+  end
+endif
+' End of "Develop Branch Workflow" partition from original diagram
+
+stop
+@enduml

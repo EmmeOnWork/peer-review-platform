@@ -1,0 +1,44 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    // Path base dove sono i package
+    def baseDir = 'Gruppo3' 
+    // Directory di destinazione per i diagrammi
+    def outputDir = "${baseDir}/Documentation/FolderStructure"
+    // Crea la directory di destinazione se non esiste
+    sh "mkdir -p ${outputDir}"
+
+    // Genera contenuto PlantUML dinamicamente
+    def pumlContent = '@startuml\n'
+    pumlContent += 'package "root" {\n'
+
+    // Funzione ricorsiva per scansionare cartelle e scrivere package (solo sh)
+    def scanPackages
+    scanPackages = { dir, indent ->
+        def foldersRaw = sh(script: "find ${dir} -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true", returnStdout: true).trim()
+        if (!foldersRaw) {
+            return
+        }
+        def folders = foldersRaw.split('\n')
+        folders.each { folder ->
+            def packageName = folder.replaceFirst("^${dir}/", '')
+            pumlContent += "${indent}package \"${packageName}\" {\n"
+            scanPackages(folder, indent + "  ")
+            pumlContent += "${indent}}\n"
+        }
+    }
+    scanPackages(baseDir, "  ")
+    pumlContent += '}\n@enduml'
+
+    // Scrive il file .puml dentro la cartella di destinazione
+    def pumlFilePath = "${outputDir}/package_diagram.puml"
+    writeFile file: pumlFilePath, text: pumlContent
+
+    // Installa PlantUML se necessario
+    sh 'sudo apt-get install -y plantuml graphviz || true'
+
+    // Genera PNG da file puml nella stessa directory
+    sh "plantuml -tpng ${pumlFilePath}"
+
+    echo "Diagramma dei package generato: ${outputDir}/package_diagram.png"
+}
+

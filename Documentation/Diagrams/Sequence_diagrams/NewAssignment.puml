@@ -1,0 +1,55 @@
+@startuml
+title Sequence Diagram - Teacher Creates Assignment (HTTP)
+
+actor Teacher
+participant FrontendApp as "Vue.js SPA\n(in Browser)"
+participant NginxProxy as "Nginx\n(Frontend & API Proxy)"
+participant AssignmentService as "Assignment Service"
+participant AuthService as "Authentication Service\n(for public key)"
+database DBAssignment as "MongoDB\n(Assignments DB)"
+
+Teacher -> FrontendApp: Fills and submits new assignment form
+activate FrontendApp
+FrontendApp -> NginxProxy: POST /api/assignments (HTTP)\n{body: assignmentData, header: Authorization: Bearer authToken}
+activate NginxProxy
+
+NginxProxy -> AssignmentService: POST / (HTTP)\n{body: assignmentData, header: Authorization: Bearer authToken}
+activate AssignmentService
+
+AssignmentService -> AssignmentService: token = extractFromHeader(authToken)
+
+group Token Decoding and Validation
+    note over AssignmentService: Assumes public key already fetched\nor fetched on first use/periodically.
+    AssignmentService -> AssignmentService: tokenInfo = decode_token_with_public_key(token)
+    ' If public key needs fetching for each validation (less ideal):
+    ' AssignmentService -> AuthService: GET /auth/public_key (HTTP)
+    ' activate AuthService
+    ' AuthService --> AssignmentService: {publicKey}
+    ' deactivate AuthService
+    ' AssignmentService -> AssignmentService: tokenInfo = decode_token(token, publicKey)
+end
+
+alt Valid Token and User Authorized (Teacher role)
+    AssignmentService -> AssignmentService: teacherSerialNumber = tokenInfo["user_id"]
+    AssignmentService -> AssignmentService: initialRecord = createRecordFrom(assignmentData, teacherSerialNumber)
+    AssignmentService -> AssignmentService: updatedRecord = addTimestampsTo(initialRecord)
+
+    AssignmentService -> DBAssignment: insert_one(updatedRecord)
+    activate DBAssignment
+    DBAssignment --> AssignmentService: {mongo_object_id}
+    deactivate DBAssignment
+
+    AssignmentService -> AssignmentService: completeRecord = createCompleteRecordWith(updatedRecord, mongo_object_id)
+
+    AssignmentService --> NginxProxy: HTTP 201 Created {completeRecord}
+else Invalid Token or Unauthorized
+    AssignmentService --> NginxProxy: HTTP 401/403\n{"error": "Invalid token or not authorized"}
+end
+
+deactivate AssignmentService
+NginxProxy --> FrontendApp: HTTP Response (201 or Error)
+deactivate NginxProxy
+FrontendApp -> Teacher: Display confirmation / error message
+deactivate FrontendApp
+
+@enduml

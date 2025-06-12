@@ -1,0 +1,48 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    def NAMESPACE = 'staging'
+
+    try {
+        echo "Avvio controlli di sicurezza sull’ambiente '${NAMESPACE}'..."
+
+        // 1. SCAN IMMAGINI DOCKER CON TRIVY
+        def changedServices = (env.CHANGED_SERVICES?.split(',') ?: []) as List
+        if (changedServices.isEmpty() || (changedServices.size() == 1 && changedServices[0] == "")) {
+            echo "Nessun servizio modificato da analizzare. Skip Trivy image scans."
+        } else {
+            changedServices.each { service ->
+                def serviceName = service.replaceAll('^.*/', '').toLowerCase()
+                def fullImage = "gruppo3/${serviceName}:latest"
+                echo "Scansione Trivy per immagine: ${fullImage}"
+
+                sh """
+                    trivy image --exit-code 0 --severity CRITICAL,HIGH ${fullImage} || true
+                """
+            }
+        }
+
+        // 2. SCAN CLUSTER K8S CON kube-hunter IN POD
+        echo "Esecuzione kube-hunter come pod nel NAMESPACE '${NAMESPACE}'..."
+
+        // Esegui come job per poterlo cancellare
+        sh """
+            kubectl run kube-hunter \
+                --image=aquasec/kube-hunter \
+                --restart=Never \
+                --namespace=${NAMESPACE} \
+                -- /bin/sh -c "kube-hunter --pod" || true
+        """
+
+    } catch (Exception e) {
+        echo "Errore durante il controllo di sicurezza: ${e.message}"
+        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+        echo ("Controllo sicurezza fallito.")
+    } finally {
+        echo "Pulizia finale: eliminazione del namespace"
+        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+    }
+
+    echo "Controllo sicurezza completato. Verifica i log di build Jenkins per i dettagli."
+
+
+}

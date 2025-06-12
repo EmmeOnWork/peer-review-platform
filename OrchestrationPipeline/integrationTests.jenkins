@@ -1,0 +1,73 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    def NAMESPACE = 'staging'
+    def IMAGE_NAME = "gruppo3/integration_tests:latest" // <-- nuovo nome immagine
+    def K8S_PATH = "Tests/integration_tests/k8s/staging"       // <-- nuovo path manifest
+    def cleanupExecuted = false
+
+    try {
+        echo "Verifica immagine Docker '${IMAGE_NAME}' nel registry..."
+        docker.withRegistry("", env.DOCKER_CREDENTIALS_ID) {
+            def imageCheckOutput = sh(
+                script: "docker pull ${IMAGE_NAME} > /dev/null 2>&1 || echo 'missing'",
+                returnStdout: true
+            ).trim()
+            if (imageCheckOutput.contains('missing')) {
+                error("Immagine '${IMAGE_NAME}' non trovata nel registry. Builda e pusha prima di procedere.")
+            } else {
+                echo "Immagine Docker presente: ${IMAGE_NAME}"
+            }
+        }
+
+        echo "Applicazione dei file YAML da '${K8S_PATH}' nel namespace '${NAMESPACE}'..."
+        if (!fileExists(K8S_PATH)) {
+            error "La directory ${K8S_PATH} non esiste. Pipeline interrotta."
+        }
+        sh "kubectl apply -f ${K8S_PATH}/ --namespace=${NAMESPACE}"
+        echo "YAML applicati correttamente."
+
+        echo "Attendo completamento del job 'integration-tests' (controllo solo i pod)..."
+        timeout(time: 3, unit: 'MINUTES') {
+            waitUntil {
+                // Recupera tutti i pod associati al job
+                def podPhases = sh(
+                    script: "kubectl get pods -n ${NAMESPACE} -l job-name=integration-tests -o jsonpath='{.items[*].status.phase}' || echo ''",
+                    returnStdout: true
+                ).trim().split(' ')
+
+                echo "Stati pod integration-tests: ${podPhases}"
+
+                // Se almeno un pod è Succeeded, il test è passato
+                if (podPhases.any { it == "Succeeded" }) {
+                    return true
+                }
+                // Se tutti i pod sono Failed, il test è fallito
+                if (podPhases.every { it == "Failed" } && podPhases.size() > 0) {
+                    echo "Log del job integration-tests:"
+                    sh "kubectl logs job/integration-tests -n ${NAMESPACE} || true"
+                    error("Job 'integration-tests' fallito.")
+                }
+                // Altrimenti attendi ancora
+                return false
+            }
+        }
+
+        echo "Job completato con successo. Recupero log..."
+        sh "kubectl logs job/integration-tests -n ${NAMESPACE} || true"
+
+    } catch (Exception e) {
+        echo "Errore durante l'esecuzione: ${e.message}"
+        echo "Pulizia  del namespace '${NAMESPACE}'"
+        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+        sh "docker rmi ${IMAGE_NAME} || true"
+        cleanupExecuted = true
+        error("Deploy/test fallito. Pipeline interrotta.")
+    } finally {
+        if (!cleanupExecuted) {
+            echo "Pulizia finale del job 'integration-tests' nel namespace '${NAMESPACE}'..."
+            sh "kubectl delete job integration-tests -n ${NAMESPACE} --ignore-not-found=true || true"
+            sh "docker rmi ${IMAGE_NAME} || true"
+        }
+    }
+
+}

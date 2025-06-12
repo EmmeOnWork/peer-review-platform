@@ -1,0 +1,58 @@
+@startuml
+title Activity Diagram: 1. Feature Branch Workflow
+
+|Developer|
+start
+
+' Start of "Feature Branch Workflow" partition from original diagram
+:Writes code (Frontend/Backend);
+:Commits and pushes changes to Feature Branch;
+
+|Git/GitHub|
+:Receives push to Feature Branch;
+:Triggers Jenkins (Feature Pipeline);
+
+|Jenkins (CI/CD Pipeline)|
+:Pipeline for Feature Branch starts;
+:Checkout source code from Feature Branch;
+
+fork
+  group Frontend Build & Unit/Component Tests
+    :Build Vue.js application;
+    :Run Frontend Unit/Component tests;
+    if (Frontend tests pass?) then (yes)
+      ' Successfully tested
+    else (no)
+      :Notify developer of Frontend test failure on Feature Branch;
+      end
+    endif
+  end group
+fork again
+  group Backend Build & Unit/Intra-Service Tests
+    :Build Backend microservice(s);
+    :Run Backend Unit/Component tests (pytest);
+    :Run Backend Intra-Service Integration Tests (e.g., with Testcontainers);
+    if (Backend tests pass?) then (yes)
+      ' Successfully tested
+    else (no)
+      :Notify developer of Backend test failure on Feature Branch;
+      end
+    endif
+  end group
+end fork
+
+|Jenkins (CI/CD Pipeline)|
+if (All tests on Feature Branch pass?) then (yes)
+  :Feature Branch is stable and ready for integration into Develop;
+  |Developer|
+  :Merges/Integrates Feature Branch code into Develop Branch;
+  note right: This action triggers the "Develop Branch Workflow"
+  '(Process for integrating feature into develop)
+else (no)
+  :Developer addresses issues on Feature Branch;
+  end 
+endif
+' End of "Feature Branch Workflow" partition from original diagram
+
+stop
+@enduml

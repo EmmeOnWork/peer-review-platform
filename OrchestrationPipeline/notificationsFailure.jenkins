@@ -1,0 +1,66 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    try {
+        // Funzione per recuperare l'ultimo commit
+        def getLastCommit = {
+            sh(script: 'git log -1 --pretty=format:"%h - %an, %ar : %s"', returnStdout: true).trim()
+        }
+        // Funzione per recuperare l'email del pusher
+        def getPusherEmail = {
+            sh(script: 'git log -1 --pretty=format:"%ae"', returnStdout: true).trim()
+        }
+        // Funzione per recuperare il nome del pusher
+        def getPusherName = {
+            sh(script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+        }
+        // Funzione per recuperare il nome del branch
+        def getBranchName = {
+            env.BRANCH_NAME ?: sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+        }
+
+        def gitCommit = getLastCommit()
+        def pusherEmail = getPusherEmail()
+        def pusherName = getPusherName()
+        def branchName = getBranchName()
+        def emailRecipients = "${pusherEmail}"
+        def emailSubject = "[FAILURE] Pipeline fallita per ${branchName}"
+        def buildLog = """
+La pipeline è fallita durante l'esecuzione di uno degli step di build, deploy o test.
+Controlla i log della pipeline Jenkins per maggiori dettagli sull'errore.
+Possibili cause:
+- Errore nella build delle immagini Docker
+- Deploy Kubernetes fallito
+- Test automatici non superati (unit, integration, performance)
+- Problemi di configurazione o permessi
+
+Consulta la sezione 'Console Output' della build Jenkins per il traceback completo.
+"""
+
+        def emailBody = """
+Ciao ${pusherName},
+
+La pipeline Jenkins per il branch '${branchName}' è fallita.
+
+Ultimo commit:
+${gitCommit}
+
+Dettagli errore:
+${buildLog}
+
+Per favore verifica e correggi il problema.
+
+--
+Jenkins CI
+"""
+        // Invia email
+        emailext (
+            to: emailRecipients,
+            subject: emailSubject,
+            body: emailBody,
+            from: 'ci-bot@example.com'
+        )
+    } catch (Exception e) {
+        echo "Errore durante l'invio della notifica di fallimento: ${e.getMessage()}"
+    }
+}
+

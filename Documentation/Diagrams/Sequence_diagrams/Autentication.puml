@@ -1,0 +1,50 @@
+@startuml
+title Sequence Diagram - User Login (HTTP)
+
+actor User
+participant Browser
+participant Ingress as "Ingress Controller\n(Minikube)"
+participant NginxProxy as "Nginx\n(Frontend & API Proxy)"
+participant FrontendApp as "Vue.js SPA\n(in Browser)"
+participant AuthService as "Authentication Service"
+database DBAuth as "PostgreSQL\n(Authentication DB)"
+
+User -> Browser: Accesses application URL
+Browser -> Ingress: GET / (HTTP Request for SPA)
+activate Ingress
+Ingress -> NginxProxy: Forward GET /
+activate NginxProxy
+NginxProxy --> Ingress: index.html, app.js, etc. (SPA files)
+Ingress --> Browser: SPA files
+deactivate Ingress
+Browser -[#black]> FrontendApp: Loads and renders SPA (Login UI)
+deactivate NginxProxy
+
+User -> FrontendApp: Submits Login (email, password)
+activate FrontendApp
+FrontendApp -> NginxProxy: POST /api/auth/login (HTTP)\n{email, password}
+activate NginxProxy
+NginxProxy -> AuthService: POST /login (HTTP)\n{email, password}
+activate AuthService
+AuthService -> DBAuth: findUserByEmail(email)
+activate DBAuth
+DBAuth --> AuthService: userData / null
+deactivate DBAuth
+group Internal Logic
+    AuthService -> AuthService: Verify password
+    alt Password OK
+        AuthService -> AuthService: Generate JWT
+    end
+end
+AuthService --> NginxProxy: HTTP Response\n{jwt_token} / Error (e.g., 401)
+deactivate AuthService
+NginxProxy --> FrontendApp: HTTP Response\n{jwt_token} / Error
+deactivate NginxProxy
+alt Login Successful
+    FrontendApp -> User: Show Dashboard
+else Login Failed
+    FrontendApp -> User: Show Error Message
+end
+deactivate FrontendApp
+
+@enduml

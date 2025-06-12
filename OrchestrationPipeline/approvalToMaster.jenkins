@@ -1,0 +1,78 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    // Team
+    def teamMembers = ['manuel_argentino', 'simoneMocc', 'Francesco']
+    def teamEmails = ['member1@example.com', 'member2@example.com', 'member3@example.com']
+    // Info branch
+    def branch = env.BRANCH_NAME ?: 'unknown'
+    def stagingUrl = 'https://pre-release.peer-review:8888' //aggiornare una volta configurato tls
+    
+    
+
+    // Funzione per recuperare ultimo committer reale tramite git (usando solo sh)
+    def getLastCommitter = {
+        sh(
+            script: "git log -1 --pretty=format:'%an'",
+            returnStdout: true
+        ).trim()
+    }
+
+    // Funzione per filtrare gli approvatori (solo Groovy base, nessun metodo custom)
+    def getApprovatori = { String lastCommitter ->
+        teamMembers.findAll { it != lastCommitter }
+    }
+
+    def lastCommitter = getLastCommitter()
+    echo "Ultimo committer rilevato: ${lastCommitter}"
+    def approvatori = getApprovatori(lastCommitter)
+
+    echo "Notifica: È richiesta una code review e approvazione manuale per il merge su master."
+    echo "Esegui i test E2E manuali sull'ambiente pre_release prima di approvare."
+    echo "Membri del team notificati: ${approvatori.join(', ')}"
+    // Invia email al team
+    emailext (
+        subject: "Code Review richiesta per merge su master - ${branch}",
+        to: teamEmails.join(','),
+        from: 'ci-bot@example.com',
+        body: """,
+Ciao team,
+
+È richiesta una code review e approvazione manuale per il merge su master.
+
+- **Branch:** ${branch}
+- **Ultimo committer:** ${lastCommitter}
+- **Ambiente di test:** ${stagingUrl}
+
+
+Attivare la VPN
+
+Controllare che l'ambiente di host dns sia correttamente configurato per il dominio pre-release.peer-review. (etc/hosts)
+Attivare il port forwarding per accedere all'ambiente di staging con il comando: 
+"ssh -L 8888:192.168.49.2:31487 ci-user@INTERNAL_HOST"
+
+Accedi all'ambiente di staging dal tuo browser per eseguire i test E2E e la review:
+${stagingUrl}
+
+Per approvare la pipeline vai su:
+http://INTERNAL_HOST:8080/job/PeerReviewStudent/job/develop/${env.BUILD_NUMBER}/input/
+
+
+Grazie,  
+Jenkins CI
+"""
+    )
+    def approver = input(
+        id: 'ApprovalInput',
+        message: "Approvazione richiesta per il merge su master. Chi approva?",
+        parameters: [
+            [$class: 'ChoiceParameterDefinition', choices: approvatori.join('\n'), description: 'Seleziona il tuo nome', name: 'approver'],
+            [$class: 'TextParameterDefinition', description: 'Note sulla review e test E2E eseguiti', name: 'review_notes']
+        ]
+    )['approver']
+    if (!approver) {
+        sh "kubectl delete namespace pre-release --wait=true || true"
+        error "Nessuno ha approvato il codice. Pipeline interrotta."
+    }
+    echo "Approvazione concessa da: ${approver}"
+    echo "Merge su master consentito. Continua la pipeline."
+}

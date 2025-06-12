@@ -1,0 +1,120 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+    sh 'git fetch origin develop'
+    // Determina il branch e il namespace corretto
+    def getBranchName = {
+        env.BRANCH_NAME ?: sh(
+            script: 'git rev-parse --abbrev-ref HEAD',
+            returnStdout: true
+        ).trim()
+    }
+    def getNamespace = { branchName ->
+        (branchName == 'master') ? 'production' : 'pre-release'
+    }
+    // Ottieni le directory dei backend usando solo comandi shell
+    def getBackendDirs = {
+        if (!fileExists('Backend')) {
+            echo "Attenzione: La directory 'Backend' non esiste."
+            return []
+        }
+        def dirs = sh(script: "ls -1 Backend 2>/dev/null || true", returnStdout: true).trim()
+        if (!dirs) {
+            return []
+        }
+        return dirs.split('\n')
+    }
+    def getEndpoints = { backendDirs, namespace ->
+        def host = (namespace == 'production') ? "peer-review" : "pre-release.peer-review"
+        def eps = backendDirs.collect { "https://${host}/api/${it}/health" }
+        eps << "https://${host}/health"
+        return eps
+    }
+    def getPodList = { ns ->
+        sh(
+            script: "kubectl get pods -n ${ns} --no-headers || true",
+            returnStdout: true
+        ).trim()
+    }
+    def getNotRunningPods = { ns ->
+        sh(
+            script: "kubectl get pods -n ${ns} --no-headers | awk '{print \$1, \$3}' | grep -v ' Running' || true",
+            returnStdout: true
+        ).trim()
+    }
+    def getReplicaMismatches = { ns ->
+        def deployments = sh(
+            script: "kubectl get deployments -n ${ns} -o jsonpath='{range .items[*]}{.metadata.name} {.status.replicas} {.status.readyReplicas} {.spec.replicas}\\n{end}'",
+            returnStdout: true
+        ).trim().split('\n')
+        def mismatches = deployments.findAll { line ->
+            def parts = line.split(' ')
+            return parts.size() == 4 && (parts[1] != parts[2] || parts[2] != parts[3])
+        }
+        return mismatches
+    }
+
+    def branchName = getBranchName()
+    def NAMESPACE = getNamespace(branchName)
+    def backendDirs = getBackendDirs()
+    def endpoints = getEndpoints(backendDirs, NAMESPACE)
+    try {
+        // Verifica endpoint definiti
+        if (!endpoints || endpoints.isEmpty()) {
+            error "Nessun endpoint definito per il health check. Pipeline interrotta."
+        }
+        // Controllo HTTP endpoint
+        endpoints.each { url ->
+            echo "Verifico disponibilità HTTP: ${url}"
+            if (sh(script: "curl -k --fail --max-time 10 ${url}", returnStatus: true) != 0) {
+                error "Health check fallito per l'endpoint: ${url}"
+            }
+        }
+        // Controllo stato pod
+        echo "Verifico che tutti i pod siano in stato Running nel namespace '${NAMESPACE}'..."
+        def podList = getPodList(NAMESPACE)
+        if (!podList) {
+            error "Nessun pod trovato nel namespace '${NAMESPACE}'."
+        }
+        def notRunning = getNotRunningPods(NAMESPACE)
+        if (notRunning) {
+            error "Alcuni pod non sono in stato Running:\n${notRunning}"
+        }
+        // Controllo replica set
+        echo "Verifico che i replica set siano corretti nel namespace '${NAMESPACE}'..."
+        def deploymentsOutput = sh(
+            script: "kubectl get deployments -n ${NAMESPACE} -o jsonpath='{range .items[*]}{.metadata.name} {.status.replicas} {.status.readyReplicas} {.spec.replicas}{\"\\n\"}{end}'",
+            returnStdout: true
+        ).trim()
+
+        if (!deploymentsOutput) {
+            echo "Nessun deployment trovato nel namespace '${NAMESPACE}'."
+        } else {
+            def deployments = deploymentsOutput.split('\n')
+            def mismatches = deployments.findAll { line ->
+                def parts = line.split(' ')
+                return parts.size() == 4 && (parts[1] != parts[2] || parts[2] != parts[3])
+            }
+            if (mismatches && mismatches.size() > 0) {
+                error "Alcuni deployment non hanno tutte le repliche pronte:\n${mismatches.join('\n')}"
+            }
+        }
+        echo "Tutti i servizi e i pod risultano disponibili e funzionanti."
+    } catch (e) {
+        echo "Smoke test fallito. Verifica i log sopra per dettagli."
+        // Rollback solo se siamo su production
+        if (NAMESPACE == 'production') {
+            echo "Eseguo rollback dei deployment in production..."
+            def deployments = sh(
+                script: "kubectl get deployments -n production -o jsonpath='{.items[*].metadata.name}'",
+                returnStdout: true
+            ).trim().split(' ')
+            deployments.each { dep ->
+                if (dep?.trim()) {
+                    echo "Rollback deployment: ${dep}"
+                    sh "kubectl rollout undo deployment/${dep} -n production || true"
+                    sh "kubectl rollout status deployment/${dep} -n production || true"
+                }
+            }
+        }
+        error "Smoke test fallito: ${e.getMessage()}"
+    }
+}

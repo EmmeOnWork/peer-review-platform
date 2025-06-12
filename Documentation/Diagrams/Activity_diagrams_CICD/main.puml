@@ -1,0 +1,46 @@
+@startuml
+title Activity Diagram: 3. Main Branch Workflow (Production Environment)
+
+' This diagram conceptually starts after the "Develop Branch Workflow"
+' where code, after successful review, is merged/integrated into Main.
+
+|Git/GitHub|
+start
+note left: Triggered by push/merge to Main Branch
+' Start of "Main Branch Workflow" partition from original diagram
+' Manual step: Code from Develop is merged into Main by a developer after review & approval (implicit before this)
+:Receives push/merge to Main Branch;
+:Triggers Jenkins (Main/Production Pipeline);
+
+|Jenkins (CI/CD Pipeline)|
+:Pipeline for Main Branch starts;
+:Checkout source code from Main Branch;
+note right: This code has passed all prior tests (unit, intra-service, inter-service).
+
+fork
+  group Frontend Image Build/Tag (Production)
+    :(Re)Build or Re-tag Frontend Docker image for Production;
+    |Docker Registry|
+    :Push Frontend Docker image (tagged for production);
+  end group
+fork again
+  group Backend Image Build/Tag (Production)
+    :(Re)Build or Re-tag Backend Docker image(s) for Production;
+    |Docker Registry|
+    :Push Backend Docker image(s) (tagged for production);
+  end group
+end fork
+
+|Jenkins (CI/CD Pipeline)|
+:Deploy to Production Kubernetes Environment;
+|Kubernetes Cluster \n (Production Environment)|
+:Pulls new images;
+:Deploys/Updates containers;
+:Production application updated;
+
+|Jenkins (CI/CD Pipeline)|
+:Notify successful deployment to Production;
+' End of "Main Branch Workflow" partition from original diagram
+
+stop
+@enduml

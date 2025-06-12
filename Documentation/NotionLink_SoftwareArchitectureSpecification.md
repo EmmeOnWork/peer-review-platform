@@ -1,0 +1,1 @@
+Link documento Software Architecture Specification: https://www.notion.so/Software-Architecture-Specification-1fd949842a5d80f98eb7f339c26ee68b?pvs=4

@@ -1,0 +1,131 @@
+sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
+
+    echo "--- Inizio Validazione Struttura Servizi ---"
+    
+    // --- Validazione struttura per i SERVIZI MODIFICATI ---
+    def changedServicesEnvVar = env.CHANGED_SERVICES
+    if (!changedServicesEnvVar || changedServicesEnvVar.trim() == '') {
+        echo "INFO: Nessun servizio specifico modificato rilevato (env.CHANGED_SERVICES è vuoto). Saltando la validazione della struttura per i singoli servizi."
+    } else {
+        echo "INFO: Servizi modificati rilevati da env.CHANGED_SERVICES: '${changedServicesEnvVar}'"
+        def servicesList = changedServicesEnvVar.split(',').collect { it.trim() }.findAll { it }
+
+        // Closure helper per validare file/dir SOLO con step pipeline
+        def validateElementsExist = { String serviceBasePath, List elementsToValidate ->
+            echo "INFO: Validazione elementi per il servizio '${serviceBasePath}'..."
+            elementsToValidate.each { element ->
+                def fullPath = "${serviceBasePath}${element.path}"
+                if (!fileExists(fullPath)) {
+                    error "ERRORE STRUTTURA per '${serviceBasePath}': ${element.type == 'dir' ? 'Cartella' : 'File'} '${element.path}' mancante. Percorso atteso: '${fullPath}'"
+                } else {
+                    // Controllo tipo usando solo step pipeline
+                    def isDir = sh(script: "[ -d '${fullPath}' ] && echo DIR || echo FILE", returnStdout: true).trim()
+                    if (element.type == 'dir' && isDir != 'DIR') {
+                        error "ERRORE STRUTTURA per '${serviceBasePath}': '${element.path}' esiste ma NON è una directory."
+                    }
+                    if (element.type == 'file' && isDir != 'FILE') {
+                        error "ERRORE STRUTTURA per '${serviceBasePath}': '${element.path}' esiste ma NON è un file."
+                    }
+                    echo "INFO STRUTTURA per '${serviceBasePath}': Elemento '${element.path}' trovato e di tipo corretto."
+                }
+            }
+        }
+
+        // --- Validazione Servizi Backend ---
+        def backendServicesToValidate = servicesList.findAll { it.startsWith('Backend/') }
+        if (!backendServicesToValidate.isEmpty()) {
+            echo "INFO: Servizi Backend da validare: ${backendServicesToValidate.join(', ')}"
+            def backendRequiredElements = [
+                [path: 'k8s', type: 'dir'],
+                [path: 'Dockerfile', type: 'file'],
+                [path: 'tests', type: 'dir'],
+                [path: 'handlers', type: 'dir'],
+                [path: '.dockerignore', type: 'file'],
+                [path: '.gitignore', type: 'file'],
+                [path: 'requirements.txt', type: 'file'],
+                [path: 'openapi.yaml', type: 'file'],
+                [path: 'app.py', type: 'file']
+            ]
+            backendServicesToValidate.each { servicePath ->
+                if (servicePath) {
+                    validateElementsExist(servicePath, backendRequiredElements)
+                }
+            }
+        } else {
+            echo "INFO: Nessun servizio Backend modificato da validare."
+        }
+
+        // --- Validazione Servizi Frontend ---
+        def frontendServicesToValidate = servicesList.findAll { it.trim() == 'Frontend/' }
+        if (!frontendServicesToValidate.isEmpty()) {
+            echo "INFO: Servizi Frontend da validare: ${frontendServicesToValidate.join(', ')}"
+            def frontendRequiredElements = [
+                [path: 'k8s', type: 'dir'],
+                [path: 'etc/nginx/nginx.conf', type: 'file'],
+                [path: '.dockerignore', type: 'file'],
+                [path: '.gitignore', type: 'file'],
+                [path: 'package.json', type: 'file'],
+                [path: 'src', type: 'dir'],
+                [path: 'public', type: 'dir'],
+                [path: 'Dockerfile', type: 'file']
+            ]
+            frontendServicesToValidate.each { servicePath ->
+                if (servicePath) {
+                    validateElementsExist(servicePath, frontendRequiredElements)
+                }
+            }
+        } else {
+            echo "INFO: Nessun servizio Frontend modificato da validare."
+        }
+
+        // --- Validazione Servizi Tests ---
+        def testsServicesToValidate = servicesList.findAll { it.trim() == 'Tests/' }
+        if (!testsServicesToValidate.isEmpty()) {
+            echo "INFO: Cartella Tests da validare: ${testsServicesToValidate.join(', ')}"
+            def testsRequiredElements = [
+                [path: 'integration_tests', type: 'dir'],
+                [path: 'performance_test', type: 'dir']
+            ]
+            testsServicesToValidate.each { servicePath ->
+                if (servicePath) {
+                    validateElementsExist(servicePath, testsRequiredElements)
+                    // Validazione integration_tests
+                    def integrationRequired = [
+                        [path: 'Dockerfile', type: 'file'],
+                        [path: 'requirements.txt', type: 'file'],
+                        [path: 'k8s', type: 'dir']
+                    ]
+                    validateElementsExist("${servicePath}integration_tests/", integrationRequired)
+                    // Validazione performance_test
+                    def performanceRequired = [
+                        [path: 'Dockerfile', type: 'file'],
+                        [path: 'requirements.txt', type: 'file'],
+                        [path: 'k8s', type: 'dir']
+                    ]
+                    validateElementsExist("${servicePath}performance_test/", performanceRequired)
+                }
+            }
+        } else {
+            echo "INFO: Nessuna cartella Tests modificata da validare."
+        }
+
+        // --- Validazione Cartella Ingress ---
+        def ingressServicesToValidate = servicesList.findAll { it.trim() == 'Ingress/' }
+        if (!ingressServicesToValidate.isEmpty()) {
+            echo "INFO: Cartella Ingress da validare: ${ingressServicesToValidate.join(', ')}"
+            def ingressRequiredElements = [
+                [path: 'ingress_production.yaml', type: 'file'],
+                [path: 'ingress_pre-release.yaml', type: 'file']
+            ]
+            ingressServicesToValidate.each { servicePath ->
+                if (servicePath) {
+                    validateElementsExist(servicePath, ingressRequiredElements)
+                }
+            }
+        } else {
+            echo "INFO: Nessuna cartella Ingress modificata da validare."
+        }
+    }
+
+    echo "--- Fine Validazione Struttura Servizi ---"
+}
