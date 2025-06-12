@@ -14,7 +14,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         def validateElementsExist = { String serviceBasePath, List elementsToValidate ->
             echo "INFO: Validazione elementi per il servizio '${serviceBasePath}'..."
             elementsToValidate.each { element ->
-                def fullPath = "${serviceBasePath}${element.path}"
+                def fullPath = "${serviceBasePath}/${element.path}"
                 if (!fileExists(fullPath)) {
                     error "ERRORE STRUTTURA per '${serviceBasePath}': ${element.type == 'dir' ? 'Cartella' : 'File'} '${element.path}' mancante. Percorso atteso: '${fullPath}'"
                 } else {

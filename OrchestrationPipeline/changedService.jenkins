@@ -58,7 +58,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         def testsSubdirs = getTestsSubdirs()
         testsSubdirs.each { subdir ->
             if (isChanged(subdir)) {
-                changedServices << subdir
+                changedServices << "${subdir}/"
             }
         }
         // NON aggiunge più la cartella Tests/ intera!
@@ -70,7 +70,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     def backendServices = getBackendServices()
     backendServices.each { servicePath ->
         if (isChanged(servicePath)) {
-            changedServices << servicePath
+            changedServices << "${servicePath}/"
         }
     }
     // Controllo Ingress come cartella singola
