@@ -3,66 +3,64 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
 
     if (changedServicesRaw.length == 0) {
         echo "Nessun servizio modificato rilevato. Saltando la validazione delle feature."
-        return
-    }
-
-    // Funzione per filtrare solo Frontend/ o Backend/<microservizio>
-    def isRelevantService = { String service ->
-        service == 'Frontend/' || service.startsWith('Backend/')
-    }
-
-    def changedServices = changedServicesRaw.findAll { service ->
-        isRelevantService(service)
-    }
-
-    if (changedServices.size() == 0) {
-        echo "Nessun servizio rilevante (Frontend/ o Backend/<microservizio>) modificato. Skip tests."
-        return
-    }
-
-    echo "Servizi da testare: ${changedServices.join(', ')}"
-
-    changedServices.each { service ->
-        def cleanService = service.replaceAll('/$', '') // Rimuove eventuale slash finale
-        def serviceName = cleanService.replaceAll('^.*/', '').toLowerCase()
-        def imageName = "gruppo3/${serviceName}:latest"
-        def testsPath = "${service}tests"
-
-        if (cleanService == 'Frontend') {
-            echo "Salto esecuzione test per il frontend"
-            return // passa al prossimo servizio
+    } else {
+        // Funzione per filtrare solo Frontend/ o Backend/<microservizio>
+        def isRelevantService = { String service ->
+            service == 'Frontend/' || service.startsWith('Backend/')
         }
 
-        if (!fileExists(testsPath)) {
-            echo "Rimozione ${imageName}"
-            sh "docker rmi ${imageName} || true"
-            error "Nessuna cartella tests trovata in '${service}'. Salto test per questo servizio."
+        def changedServices = changedServicesRaw.findAll { service ->
+            isRelevantService(service)
         }
 
-        try {
-            echo "Eseguo test per il servizio '${service}' usando l'immagine '${imageName}'"
+        if (changedServices.size() == 0) {
+            echo "Nessun servizio rilevante (Frontend/ o Backend/<microservizio>) modificato. Skip tests."
+        } else {
+            echo "Servizi da testare: ${changedServices.join(', ')}"
 
-            docker.withRegistry("", env.DOCKER_CREDENTIALS_ID) {
-                // Pull immagine
-                sh "docker pull ${imageName}"
+            changedServices.each { service ->
+                def cleanService = service.replaceAll('/$', '') // Rimuove eventuale slash finale
+                def serviceName = cleanService.replaceAll('^.*/', '').toLowerCase()
+                def imageName = "gruppo3/${serviceName}:latest"
+                def testsPath = "${service}tests"
 
-                dir(service) {
-                    // Esegui i test Python per i backend
-                    sh """
-                        docker run --rm \
-                        -v \$(pwd)/tests:/app/tests \
-                        ${imageName} \
-                        pytest /app/tests
-                    """
+                if (cleanService == 'Frontend') {
+                    echo "Salto esecuzione test per il frontend"
+                    return // passa al prossimo servizio
+                }
+
+                if (!fileExists(testsPath)) {
+                    echo "Rimozione ${imageName}"
+                    sh "docker rmi ${imageName} || true"
+                    error "Nessuna cartella tests trovata in '${service}'. Salto test per questo servizio."
+                }
+
+                try {
+                    echo "Eseguo test per il servizio '${service}' usando l'immagine '${imageName}'"
+
+                    docker.withRegistry("", env.DOCKER_CREDENTIALS_ID) {
+                        // Pull immagine
+                        sh "docker pull ${imageName}"
+
+                        dir(service) {
+                            // Esegui i test Python per i backend
+                            sh """
+                                docker run --rm \
+                                -v \$(pwd)/tests:/app/tests \
+                                ${imageName} \
+                                pytest /app/tests
+                            """
+                        }
+                    }
+                } catch (Exception e) {
+                    echo "Rimozione ${imageName}"
+                    sh "docker rmi ${imageName} || true"
+                    error "Fallimento nell'esecuzione dei test per '${serviceName}': ${e.message}"
+                } finally {
+                    echo "Pulizia immagine Docker locale '${imageName}'..."
+                    sh "docker rmi ${imageName} || true"
                 }
             }
-        } catch (Exception e) {
-            echo "Rimozione ${imageName}"
-            sh "docker rmi ${imageName} || true"
-            error "Fallimento nell'esecuzione dei test per '${serviceName}': ${e.message}"
-        } finally {
-            echo "Pulizia immagine Docker locale '${imageName}'..."
-            sh "docker rmi ${imageName} || true"
         }
     }
 }

@@ -1,28 +1,31 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    def changedServices = env.CHANGED_SERVICES?.split(',') ?: []
-    // Escludi la cartella Ingress
-    changedServices = changedServices.findAll { it.trim() != 'Ingress/' }
-    if (changedServices.isEmpty()) {
-        echo "Nessun servizio modificato rilevato. Saltando la build delle immagini Docker."
-        return
-    }
-    echo "Servizi da costruire: ${changedServices.join(', ')}"
-    changedServices.each { service ->
-        def cleanService = service.replaceAll('/$', '') // Rimuove eventuale slash finale
-        def serviceName = cleanService.replaceAll('^.*/', '').toLowerCase()
-        def imageName = "gruppo3/${serviceName}:latest"
-        dir(service) {
-            if (fileExists('Dockerfile')) {
-                docker.withRegistry("", env.DOCKER_CREDENTIALS_ID) {
-                    echo "Costruzione e push dell'immagine Docker: ${imageName}"
-                    def dockerImage = docker.build(imageName, '.')
-                    dockerImage.push()
-                    echo "Push completato per ${imageName}"
+    def changedServicesEnvVar = env.CHANGED_SERVICES
+    if (!changedServicesEnvVar || changedServicesEnvVar.trim() == '') {
+        echo "Nessun servizio modificato rilevato (env.CHANGED_SERVICES è vuoto). Salto la build delle immagini Docker."
+    } else {
+        def changedServices = changedServicesEnvVar.split(',').collect { it.trim() }.findAll { it && it != 'Ingress/' }
+        if (changedServices.isEmpty()) {
+            echo "Nessun servizio modificato da buildare dopo il filtro. Salto la build delle immagini Docker."
+        } else {
+            echo "Servizi da costruire: ${changedServices.join(', ')}"
+            changedServices.each { service ->
+                def cleanService = service.replaceAll('/$', '') // Rimuove eventuale slash finale
+                def serviceName = cleanService.replaceAll('^.*/', '').toLowerCase()
+                def imageName = "gruppo3/${serviceName}:latest"
+                dir(service) {
+                    if (fileExists('Dockerfile')) {
+                        docker.withRegistry("", env.DOCKER_CREDENTIALS_ID) {
+                            echo "Costruzione e push dell'immagine Docker: ${imageName}"
+                            def dockerImage = docker.build(imageName, '.')
+                            dockerImage.push()
+                            echo "Push completato per ${imageName}"
+                        }
+                    } else {
+                        echo "Rimozione ${imageName}"
+                        sh "docker rmi ${imageName} || true"
+                        error "Nessun Dockerfile trovato in ${service}, salto la build."
+                    }
                 }
-            } else {
-                echo "Rimozione ${imageName}"
-                sh "docker rmi ${imageName} || true"
-                error "Nessun Dockerfile trovato in ${service}, salto la build."
             }
         }
     }
