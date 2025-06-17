@@ -101,18 +101,8 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         echo "Smoke test fallito. Verifica i log sopra per dettagli."
         // Rollback solo se siamo su production
         if (NAMESPACE == 'production') {
-            echo "Eseguo rollback dei deployment in production..."
-            def deployments = sh(
-                script: "kubectl get deployments -n production -o jsonpath='{.items[*].metadata.name}'",
-                returnStdout: true
-            ).trim().split(' ')
-            deployments.each { dep ->
-                if (dep?.trim()) {
-                    echo "Rollback deployment: ${dep}"
-                    sh "kubectl rollout undo deployment/${dep} -n production || true"
-                    sh "kubectl rollout status deployment/${dep} -n production || true"
-                }
-            }
+            echo "Rollback di tutti i deployment in production..."
+            sh "kubectl rollout undo deployment -n production || true"
         }
         error "Smoke test fallito: ${e.getMessage()}"
     }

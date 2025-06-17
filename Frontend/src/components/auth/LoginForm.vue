@@ -1,6 +1,6 @@
 <template>
   <div class="login-form-container">
-    <h2>Peer Review Platform Login</h2>
+    <h2>Platform Login</h2>
     <form @submit.prevent="handleLogin">
       <div class="form-group">
         <label for="email">Email</label>

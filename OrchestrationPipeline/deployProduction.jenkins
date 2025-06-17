@@ -56,6 +56,11 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     } else {
         error "File ${ingressFile} non trovato. Pipeline interrotta."
     }
+
+    // Rollout restart di tutti i deployment nel namespace
+    echo "Eseguo rollout restart di tutti i deployment su ${NAMESPACE}..."
+    sh "kubectl rollout restart deployment -n ${NAMESPACE}"
+
     // Attendi che tutti i pod siano Running
     timeout(time: 5, unit: 'MINUTES') {
         waitUntil {
