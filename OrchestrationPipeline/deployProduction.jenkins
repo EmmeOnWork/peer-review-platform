@@ -61,6 +61,18 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     echo "Eseguo rollout restart di tutti i deployment su ${NAMESPACE}..."
     sh "kubectl rollout restart deployment -n ${NAMESPACE}"
 
+    // Attendi che tutti i deployment abbiano completato il rollout
+    def deployments = sh(
+        script: "kubectl get deployments -n ${NAMESPACE} -o jsonpath='{.items[*].metadata.name}'",
+        returnStdout: true
+    ).trim().split(' ')
+    deployments.each { dep ->
+        if (dep?.trim()) {
+            echo "Attendo il completamento del rollout per deployment: ${dep}"
+            sh "kubectl rollout status deployment/${dep} -n ${NAMESPACE} --timeout=300s"
+        }
+    }
+
     // Attendi che tutti i pod siano Running
     timeout(time: 5, unit: 'MINUTES') {
         waitUntil {
