@@ -12,6 +12,12 @@ pipeline {
     }
 
     stages {
+        stage('Pulizia Workspace') {
+            steps {
+                deleteDir()
+                echo "Pulizia workspace completata."
+            }
+        }
         stage('Checkout') {
             steps {
                 checkout([

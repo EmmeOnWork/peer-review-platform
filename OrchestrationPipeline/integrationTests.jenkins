@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     def NAMESPACE = 'staging'
     def IMAGE_NAME = "gruppo3/integration_tests:latest" // <-- nuovo nome immagine
     def K8S_PATH = "Tests/integration_tests/k8s/staging"       // <-- nuovo path manifest

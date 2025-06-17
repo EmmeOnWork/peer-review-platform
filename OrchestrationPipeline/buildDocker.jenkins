@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     def changedServices = env.CHANGED_SERVICES?.split(',') ?: []
     // Escludi la cartella Ingress
     changedServices = changedServices.findAll { it.trim() != 'Ingress/' }

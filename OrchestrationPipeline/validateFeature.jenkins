@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     def changedServicesRaw = env.CHANGED_SERVICES?.split(',') ?: []
 
     if (changedServicesRaw.length == 0) {

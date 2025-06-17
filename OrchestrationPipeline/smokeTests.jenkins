@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     // Determina il branch e il namespace corretto
     def getBranchName = {
         env.BRANCH_NAME ?: sh(

@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     def NAMESPACE = 'production'
 
     // Funzione per verificare se una directory esiste

@@ -1,6 +1,10 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
-    sh 'git config --global user.name "bot"'
-    sh 'git config --global user.email "ci-bot@example.com"'
-    echo "Identità Git configurata per l'utente \"bot\"."
+    // Recupera la mail dell'autore dell'ultimo commit
+    def authorEmail = sh(
+        script: "git log -1 --pretty=format:'%ae'",
+        returnStdout: true
+    ).trim()
+    sh "git config --global user.name 'bot'"
+    sh "git config --global user.email '${authorEmail}'"
+    echo "Identità Git configurata per il bot con email: ${authorEmail}"
 }

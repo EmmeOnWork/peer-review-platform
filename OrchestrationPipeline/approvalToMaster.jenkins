@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     // Team
     def teamMembers = ['manuel_argentino', 'simoneMocc', 'Francesco']
     def teamEmails = ['member1@example.com', 'member2@example.com', 'member3@example.com']

@@ -5,13 +5,50 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
 
     try {
         sh "git checkout ${featureBranch}"
-        // Il commit di merge userà l'identità del bot già configurata
-        sh "git merge origin/${developBranch} --no-ff -m 'Merge develop into ${featureBranch} [bot]'"
-        sh "git pull origin ${featureBranch}"
+        sh "git merge origin/${developBranch} --no-ff -m 'Merge develop into ${featureBranch} [bot]'"  // Il commit di merge userà l'identità del bot già configurata
+        sh "git pull origin ${featureBranch} --no-rebase"
         sh "git push origin ${featureBranch}"
         echo "Merge LOCALE di develop su ${featureBranch} riuscito. Ora è possibile testare come se fossi su develop+feature."
     } catch (Exception e) {
         echo "Conflitto durante il merge di develop su ${featureBranch}: ${e.message}"
+        // Recupera la mail dell'autore dell'ultimo commit
+        def authorEmail = sh(
+            script: "git log -1 --pretty=format:'%ae'",
+            returnStdout: true
+        ).trim()
+        emailext (
+            to: authorEmail,
+            subject: "Conflitto di merge su ${featureBranch}",
+            body: """Ciao,
+
+si è verificato un conflitto di merge tra develop e ${featureBranch} durante la pipeline Jenkins.
+
+**Come risolvere:**
+1. Clona o aggiorna il repository in locale:
+   git fetch origin
+   git checkout ${featureBranch}
+
+2. Esegui il merge di develop:
+   git merge origin/develop
+
+3. Risolvi i conflitti nei file indicati da git.
+
+4. Aggiungi e committa i file risolti:
+   git add <file_conflitto>
+   git commit
+
+5. Fai il push della feature branch risolta:
+   git push origin ${featureBranch}
+
+6. Rilancia la pipeline Jenkins.
+
+Log errore Jenkins:
+${e.message}
+
+Grazie,
+Pipeline Gruppo3
+"""
+        )
         error "Merge bloccato per conflitti. Risolvere manualmente prima di continuare."
     }
 }

@@ -1,6 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
-
     // Parametri configurabili
     def TARGET_NAMESPACE
     def TARGET_HOST_URL

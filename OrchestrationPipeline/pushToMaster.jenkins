@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     def SOURCE_BRANCH = 'develop'
     def TARGET_BRANCH = 'master' // Cambia in 'main' se necessario
 

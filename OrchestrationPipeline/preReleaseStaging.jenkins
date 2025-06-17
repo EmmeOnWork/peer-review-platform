@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     def NAMESPACE = 'pre-release'
 
     // Funzione per verificare se una directory esiste
@@ -25,7 +24,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     try {
         echo "Inizio deploy nel namespace '${NAMESPACE}'"
         // Crea namespace se non esiste
-        sh "kubectl get namespace ${NAMESPACE} || kubectl create namespace ${NAMESPACE}"
+        sh "kubectl create namespace ${NAMESPACE} || kubectl get namespace ${NAMESPACE} || true"
         // Raccoglie i servizi Frontend e Backend
         def serviceDirs = []
         if (dirExists('Frontend')) {

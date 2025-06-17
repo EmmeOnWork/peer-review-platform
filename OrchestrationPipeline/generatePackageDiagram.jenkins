@@ -1,5 +1,4 @@
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    sh 'git fetch origin develop'
     // Path base dove sono i package
     def baseDir = 'Gruppo3' 
     // Directory di destinazione per i diagrammi
