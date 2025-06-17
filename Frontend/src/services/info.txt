@@ -1,0 +1,5 @@
+Di seguito un esempio di cosa dovrebbe contenere questo folder
+
+├── services/ (opzionale, per logica chiamate API)
+│   └── authService.js
+│   └── assignmentService.js

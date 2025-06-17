@@ -1,0 +1,46 @@
+# locust-job.template.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: locust-loadtest-job
+  labels:
+    app: locust-loadtest
+    type: performance-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      hostAliases:
+      - ip: "${INGRESS_CONTROLLER_IP}" # L'IP verrà fornito dinamicamente da Jenkins
+        hostnames:
+        - "pre-release.peer-review"
+        - "peer-review"
+      containers:
+      - name: locust-loadtest-container
+        image: gruppo3/performance_test:latest
+        imagePullPolicy: Always
+        args:
+          - "-f"
+          - "/app/locustfile.py"
+          - "--headless"
+          - "-u"
+          - "20"
+          - "-r"
+          - "2"
+          - "--run-time"
+          - "30s"
+          - "--host=${TARGET_HOST_URL}"
+          - "--check-fail-ratio=0.10"
+          - "--exit-code-on-error=1"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "384Mi"
+          requests:
+            cpu: "200m"
+            memory: "192Mi"
+  backoffLimit: 0
+  activeDeadlineSeconds: 420
+  ttlSecondsAfterFinished: 3600
+
+  #da

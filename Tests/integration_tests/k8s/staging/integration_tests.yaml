@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: integration-tests
+spec:
+  template:
+    spec:
+      containers:
+      - name: integration
+        image: gruppo3/tests:latest
+        command: ["pytest", "integration_tests/"]
+      restartPolicy: Never
+
+      #da

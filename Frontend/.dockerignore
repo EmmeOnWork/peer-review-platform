@@ -1,0 +1,38 @@
+# Node/Vue build cache e dipendenze
+node_modules
+dist
+
+# Log e report
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage
+
+# File di ambiente e configurazione locale
+.env
+.env.*
+*.env
+
+# File IDE/editor e di sistema operativo
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Documentazione e file non necessari nell'immagine
+README.md
+
+# Altri file temporanei/progetto (aggiungi qui se necessario)

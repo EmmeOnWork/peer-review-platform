@@ -1,0 +1,5 @@
+Di seguito un esempio di cosa dovrebbe contenere questa folder
+
+├── store/ (opzionale, per state management con Pinia/Vuex, molto utile per quest'app)
+│   └── auth.js (es. per stato utente, token)
+│   └── assignments.js (es. per dati assignments)

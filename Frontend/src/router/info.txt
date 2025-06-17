@@ -1,0 +1,1 @@
+aggiornare e aggiungere le route per docenti (assignments, details, etc.) e students ogni volta che una nuova pagina viene aggiunta
