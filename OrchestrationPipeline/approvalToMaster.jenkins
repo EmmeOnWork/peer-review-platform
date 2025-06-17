@@ -62,15 +62,19 @@ Jenkins CI
     )
     def approver = input(
         id: 'ApprovalInput',
-        message: """Approvazione richiesta per il merge su master.
+        message: "Approvazione richiesta per il merge su master", // Titolo breve
+        parameters: [
+            [$class: 'ChoiceParameterDefinition',
+             choices: approvatori.join('\n'),
+             description: """Esegui i test E2E sull'ambiente di staging prima di approvare:
 
-Esegui i test E2E sull'ambiente di staging prima di approvare:
 ${stagingUrl}
 
 Chi approva?""",
-        parameters: [
-            [$class: 'ChoiceParameterDefinition', choices: approvatori.join('\n'), description: 'Seleziona il tuo nome', name: 'approver'],
-            [$class: 'TextParameterDefinition', description: 'Note sulla review e test E2E eseguiti', name: 'review_notes']
+             name: 'approver'],
+            [$class: 'TextParameterDefinition',
+             description: 'Note sulla review e test E2E eseguiti',
+             name: 'review_notes']
         ]
     )['approver']
     if (!approver) {
