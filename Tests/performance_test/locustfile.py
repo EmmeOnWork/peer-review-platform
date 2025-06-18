@@ -138,6 +138,7 @@ class BaseLocustUser(HttpUser):
                 return False
 
     def on_start(self):
+        self.client.verify = False  # Disabilita verifica SSL
         if not self._register_or_login() or not self.token:
             self.stop(True)
 
