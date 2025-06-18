@@ -4,7 +4,7 @@ import jwt
 from datetime import datetime, timedelta, timezone 
 import os
 
-JWT_EXP_DELTA_SECONDS = 3600  # 1 ora
+JWT_EXP_DELTA_SECONDS = 3600  # 1 ora di durata
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

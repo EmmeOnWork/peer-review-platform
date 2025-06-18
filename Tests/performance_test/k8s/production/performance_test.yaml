@@ -34,10 +34,10 @@ spec:
           - "--exit-code-on-error=1"
         resources:
           limits:
-            cpu: "500m"
+            cpu: "200m"
             memory: "384Mi"
           requests:
-            cpu: "200m"
+            cpu: "80m"
             memory: "192Mi"
   backoffLimit: 0
   activeDeadlineSeconds: 420
