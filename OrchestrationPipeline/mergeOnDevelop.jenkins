@@ -4,10 +4,18 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     def featureBranch = env.BRANCH_NAME ?: 'feature-branch'
 
     try {
-        sh "git checkout ${featureBranch}"
-        sh "git merge origin/${developBranch} --no-ff -m 'Merge develop into ${featureBranch} [bot]'"  // Il commit di merge userà l'identità del bot già configurata
+        sh "git checkout  ${featureBranch}"
+        // Salva l'hash dell'ultimo commit (prima del merge)
+        def beforeMerge = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+        // Prova il merge
+        sh "git merge origin/${developBranch} --no-ff -m 'Merge develop into ${featureBranch} [bot]' || true"
+        // Salva l'hash dopo il merge
+        def afterMerge = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+        // Se l'hash non è cambiato, il merge non ha creato un commit: fai un commit vuoto
+        if (beforeMerge == afterMerge) {
+            sh "git commit --allow-empty -m 'Empty merge commit by bot: develop already up to date with ${featureBranch}'"
+        }
         sh "git pull origin ${featureBranch} --no-rebase"
-        sh "git push origin ${featureBranch}"
         echo "Merge LOCALE di develop su ${featureBranch} riuscito. Ora è possibile testare come se fossi su develop+feature."
     } catch (Exception e) {
         echo "Conflitto durante il merge di develop su ${featureBranch}: ${e.message}"
