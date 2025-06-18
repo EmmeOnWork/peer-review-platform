@@ -1,11 +1,14 @@
 <template>
   <div id="app-container">
-    <router-view /> <!-- Qui verranno caricate LoginPage, TeacherDashboard, StudentDashboard, ecc. -->
+    <AppHeader />
+    <main class="main-content">
+      <router-view /> <!-- Qui verranno caricate LoginPage, TeacherDashboard, StudentDashboard, ecc. -->
+    </main>
   </div>
 </template>
 
 <script setup>
-// Nessuna logica specifica qui per ora, gestita dal router e dalle view
+import AppHeader from './components/common/AppHeader.vue';
 </script>
 
 <style>
@@ -19,6 +22,29 @@ body {
 
 #app-container {
   min-height: 100vh;
+}
+
+.main-content {
+  padding-top: 80px; /* Spazio per l'header fisso */
+  padding-left: 80px; /* Spazio per i pulsanti di navigazione */
+  min-height: calc(100vh - 80px);
+}
+
+/* Responsive: su schermi piccoli riduci il padding */
+@media (max-width: 768px) {
+  .main-content {
+    padding-left: 20px;
+  }
+  
+  .navigation-buttons {
+    left: 10px;
+    top: 90px;
+  }
+  
+  .nav-btn {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 /* Puoi aggiungere altri stili globali o utility classes qui */

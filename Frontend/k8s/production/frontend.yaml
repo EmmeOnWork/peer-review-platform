@@ -1,4 +1,4 @@
-apiVersion: apps/v1 
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
@@ -21,11 +21,11 @@ spec:
             - containerPort: 80
           resources:
             limits:
-              cpu: "150m" 
-              memory: "192Mi"
+              cpu: "250m"
+              memory: "256Mi"
             requests:
-              cpu: "75m"
-              memory: "96Mi"
+              cpu: "100m"
+              memory: "128Mi"
           readinessProbe:
             httpGet:
               path: /health
@@ -53,5 +53,4 @@ spec:
       targetPort: 80
   type: ClusterIP
 
-
-
+#a

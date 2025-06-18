@@ -1,0 +1,755 @@
+openapi: 3.0.3
+info:
+  title: Authentication & User Profile Service
+  version: 1.0.5 
+  description: API for user authentication, registration, and profile management with role support (student & teacher only).
+
+servers:
+  - url: http://authentication-app-service:5000
+
+paths:
+  /auth/login:
+    post:
+      security: [] # Endpoint pubblico
+      operationId: handlers.auth_handler.login_user
+      summary: User login
+      description: Authenticate a user and return a JWT token if credentials are valid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "john.doe@example.com"
+              password: "SecurePass123"
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaTypeError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /auth/register:
+    post:
+      security: [] # Endpoint pubblico
+      operationId: handlers.auth_handler.register_user
+      summary: Register a new user
+      description: Create a new user account with a specified role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              name: "Jane"
+              surname: "Doe"
+              email: "jane.doe@example.com"
+              password: "StrongPass456"
+              role: "student"
+              fiscalCode: "RSSMRA85M01H501Z"
+              birthDate: "1990-05-16"
+              residence: "Via Roma 10, 00100 Roma"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileFull'
+        '400':
+          $ref: '#/components/responses/BadRequestError' 
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaTypeError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /auth/logout:
+    post:
+      operationId: handlers.auth_handler.logout_user
+      summary: Logout user (blacklist JWT)
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Logged out successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /health:
+    get:
+      security: []  # Endpoint pubblico
+      operationId: handlers.auth_handler.health_check
+      summary: Health check endpoint
+      description: Check the health of the service.
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string       
+  /auth/users/me:
+    get:
+      operationId: handlers.auth_handler.get_own_profile
+      summary: Get own profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile data (full)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileFull'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '406':
+          $ref: '#/components/responses/NotAcceptableError'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaTypeError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+    put:
+      operationId: handlers.auth_handler.update_own_profile
+      summary: Update own residence and password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOwnProfileRequest'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileFull'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '406':
+          $ref: '#/components/responses/NotAcceptableError'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaTypeError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+    delete:
+      operationId: handlers.auth_handler.delete_own_account
+      summary: Delete own account
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Account deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '406':
+          $ref: '#/components/responses/NotAcceptableError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /auth/users/students:
+    get:
+      operationId: handlers.auth_handler.get_all_students
+      summary: Get all student details (teachers only)
+      description: Retrieve a list of all users with the 'student' role. Access restricted to users with the 'teacher' role.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of student details
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentDetails'
+                maxItems: 1000
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '406':
+          $ref: '#/components/responses/NotAcceptableError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /auth/users/search:
+    get:
+      operationId: handlers.auth_handler.search_students_by_name_surname
+      summary: Search students by name and/or surname
+      description: >
+        Search for students based on name and/or surname.
+        Teachers get full details including serial number.
+        Students get limited details.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: false
+          description: Student's first name (or part of it)
+          schema:
+            type: string
+            pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+            minLength: 1
+            maxLength: 100
+        - name: surname
+          in: query
+          required: false
+          description: Student's last name (or part of it)
+          schema:
+            type: string
+            pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+            minLength: 1
+            maxLength: 100
+      responses:
+        '200':
+          description: A list of users matching the criteria.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: '#/components/schemas/StudentTeacherView'  # Per studenti visti da teacher
+                    - $ref: '#/components/schemas/StudentPublicProfile' # Per studenti visti da studenti
+                    - $ref: '#/components/schemas/TeacherPublicProfile' # Per teacher (visti da chiunque)
+                maxItems: 100
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '406':
+          $ref: '#/components/responses/NotAcceptableError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+  /auth/public_key:
+    get:
+      summary: Get the RSA public key for JWT verification
+      operationId: handlers.public_key.get_public_key
+      security: [] # Endpoint pubblico
+      responses:
+        '200':
+          description: The PEM-encoded RSA public key
+          content:
+            text/plain:
+              schema:
+                type: string
+                pattern: '-----BEGIN PUBLIC KEY-----[A-Za-z0-9+/\s=]+-----END PUBLIC KEY-----'
+                maxLength: 2048
+                example: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy8DbC/S...\n-----END PUBLIC KEY-----"
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '406':
+          $ref: '#/components/responses/NotAcceptableError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        default:
+          $ref: '#/components/responses/DefaultError'
+
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address.
+          example: "john.doe@example.com"
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+[.][a-zA-Z]{2,}$"
+          maxLength: 254
+        password:
+          type: string
+          format: password 
+          description: User's password.
+          example: "SecurePass123"
+          pattern: "^(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9@$!%*?&]{8,128}$"
+          minLength: 8
+          maxLength: 128
+      additionalProperties: false
+
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - surname
+        - email
+        - password
+        - role
+        - fiscalCode
+        - birthDate
+        - residence
+      properties:
+        name:
+          type: string
+          description: User's first name.
+          example: "Jane"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          minLength: 1
+          maxLength: 100
+        surname:
+          type: string
+          description: User's last name.
+          example: "Doe"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          description: User's email address (must be unique).
+          example: "jane.doe@example.com"
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+[.][a-zA-Z]{2,}$"
+          maxLength: 254
+        password:
+          type: string
+          format: password 
+          description: User's password (must meet complexity requirements).
+          example: "StrongPass456"
+          pattern: "^(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9@$!%*?&]{8,128}$"
+          minLength: 8
+          maxLength: 128
+        role:
+          type: string
+          description: User's role.
+          enum: ["student", "teacher"]
+          example: "student"
+        fiscalCode:
+          type: string
+          description: User's Italian fiscal code.
+          example: "RSSMRA85M01H501Z"
+          pattern: "^[A-Z]{6}[0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$"
+          minLength: 16
+          maxLength: 16
+        birthDate:
+          type: string
+          format: date
+          description: User's birth date.
+          example: "1990-05-16"
+        residence:
+          type: string
+          description: User's residence address.
+          example: "Via Roma 10, 00100 Roma"
+          pattern: "^.{5,255}$"
+          minLength: 5
+          maxLength: 255
+      additionalProperties: false
+
+    UserProfileFull:
+      type: object
+      properties:
+        name:
+          type: string
+          description: User's first name.
+          example: "Jane"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        surname:
+          type: string
+          description: User's last name.
+          example: "Doe"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          description: User's email address.
+          example: "jane.doe@example.com"
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+[.][a-zA-Z]{2,}$"
+          maxLength: 254
+        role:
+          type: string
+          description: User's role.
+          enum: ["student", "teacher"]
+          example: "student"
+        fiscalCode:
+          type: string
+          description: User's Italian fiscal code.
+          example: "RSSMRA85M01H501Z"
+          pattern: "^[A-Z]{6}[0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$"
+          maxLength: 16
+        birthDate:
+          type: string
+          format: date
+          description: User's birth date.
+          example: "1990-05-16"
+        residence:
+          type: string
+          description: User's residence address.
+          example: "Via Roma 10, 00100 Roma"
+          pattern: "^.{5,255}$"
+          maxLength: 255
+        serialNumber:
+          type: string
+          description: Student's serial number (matricola), visible only to teachers or the student themselves.
+          example: "S123456"
+          pattern: "^[A-Za-z0-9]{5,20}$"
+          minLength: 5
+          maxLength: 20
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of user creation.
+          readOnly: true
+          example: "2023-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last user update.
+          readOnly: true
+          example: "2023-01-16T12:45:00Z"
+      additionalProperties: false
+
+    UpdateOwnProfileRequest:
+      type: object
+      properties:
+        residence:
+          type: string
+          description: New residence address.
+          example: "Corso Vittorio Emanuele 20, 20100 Milano"
+          pattern: "^.{5,255}$"
+          minLength: 5
+          maxLength: 255
+        password:
+          type: string
+          format: password 
+          description: New password (must meet complexity requirements).
+          example: "NewStrongPass789"
+          pattern: "^(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9@$!%*?&]{8,128}$"
+          minLength: 8
+          maxLength: 128
+        old_password:
+          type: string
+          format: password
+          description: Current password, required if 'password' is provided.
+          example: "SecurePass123"
+          pattern: "^(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9@$!%*?&]{8,128}$"
+          minLength: 8
+          maxLength: 128
+      minProperties: 0 
+      additionalProperties: false
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token for authentication.
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwicm9sZSI6InN0dWRlbnQiLCJpYXQiOjE1MTYyMzkwMjJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+          pattern: "^[A-Za-z0-9-_=]+[.][A-Za-z0-9-_=]+[.]?[A-Za-z0-9-_.+/=]*$" # Generic JWT pattern
+          maxLength: 2048 
+        user:
+          $ref: '#/components/schemas/UserProfileFull'
+      additionalProperties: false
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+          description: A human-readable description of the error.
+          example: "Invalid input data."
+          pattern: "^.{1,512}$"
+          maxLength: 512
+        code:
+          type: integer
+          format: int32
+          description: An internal error code, often mirroring HTTP status code.
+          example: 400
+        details:
+          type: object
+          additionalProperties: true 
+          description: Optional additional details about the error.
+          example: { "field_errors": [ { "field": "email", "message": "Invalid email format." } ] }
+      additionalProperties: false
+
+    StudentDetails: # Schema per i dettagli dello studente (usato in /users/students)
+      type: object
+      properties:
+        name:
+          type: string
+          description: Student's first name.
+          example: "Mario"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        surname:
+          type: string
+          description: Student's last name.
+          example: "Rossi"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          description: Student's email address.
+          example: "mario.rossi@example.com"
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+[.][a-zA-Z]{2,}$"
+          maxLength: 254
+        serialNumber:
+          type: string
+          description: Student's serial number (matricola).
+          example: "S654321"
+          pattern: "^[A-Za-z0-9]{5,20}$"
+          maxLength: 20
+        role: 
+          type: string 
+          description: User role. 
+          example: "student" 
+          enum: [student] 
+      additionalProperties: false
+
+    StudentPublicProfile:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Student's first name.
+          example: "Luigi"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        surname:
+          type: string
+          description: Student's last name.
+          example: "Verdi"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          description: Student's email address.
+          example: "luigi.verdi@example.com"
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+[.][a-zA-Z]{2,}$"
+          maxLength: 254
+        role:
+          type: string
+          description: User role.
+          example: "student"
+          enum: [student]
+      required:
+        - name
+        - surname
+        - email
+        - role
+      additionalProperties: false
+
+    StudentTeacherView:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Student's first name.
+          example: "Luigi"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        surname:
+          type: string
+          description: Student's last name.
+          example: "Verdi"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          description: Student's email address.
+          example: "luigi.verdi@example.com"
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+[.][a-zA-Z]{2,}$"
+          maxLength: 254
+        role:
+          type: string
+          description: User role.
+          example: "student"
+          enum: [student]
+        serialNumber:
+          type: string
+          description: Student's serial number (matricola).
+          example: "T987654"
+          pattern: "^[A-Za-z0-9]{5,20}$"
+          maxLength: 20
+      required:
+        - name
+        - surname
+        - email
+        - role
+        - serialNumber
+      additionalProperties: false
+
+    TeacherPublicProfile:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Teacher's first name.
+          example: "Giovanni"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        surname:
+          type: string
+          description: Teacher's last name.
+          example: "Bianchi"
+          pattern: "^[a-zA-ZÀ-ÿ-' ]+$"
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          description: Teacher's email address.
+          example: "giovanni.bianchi@example.com"
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+[.][a-zA-Z]{2,}$"
+          maxLength: 254
+        role:
+          type: string
+          description: User role.
+          example: "teacher"
+          enum: [teacher] 
+      required:
+        - name
+        - surname
+        - email
+        - role
+      additionalProperties: false
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Standard JWT Bearer token. Example: \"Bearer {token}\""
+      x-bearerInfoFunc: handlers.utils.decode_token
+
+  responses:
+    UnauthorizedError:
+      description: Unauthorized. Invalid or missing token, or insufficient permissions.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "Authentication token is invalid or expired."
+              code: 401
+    ForbiddenError:
+      description: Forbidden. User does not have permission to access the resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "User is not authorized to perform this action."
+              code: 403
+    NotFoundError:
+      description: Not Found. The requested resource could not be found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "The requested resource was not found."
+              code: 404
+    BadRequestError:
+      description: Bad Request. The request was malformed or contained invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "Invalid input data provided."
+              code: 400
+    UnsupportedMediaTypeError:
+      description: Unsupported Media Type. The server cannot process the request because the media type is not supported.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "Content type 'application/xml' not supported."
+              code: 415
+    NotAcceptableError:
+      description: Not Acceptable. The server cannot produce a response matching the list of acceptable values defined in the request's proactive content negotiation headers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "Requested representation not available."
+              code: 406
+    TooManyRequestsError:
+      description: Too Many Requests. The user has sent too many requests in a given amount of time.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "Rate limit exceeded. Please try again later."
+              code: 429
+    DefaultError:
+      description: An unexpected error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "An internal server error occurred."
+              code: 500
+
+

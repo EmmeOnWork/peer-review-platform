@@ -21,11 +21,11 @@ spec:
             - containerPort: 80
           resources:
             limits:
+              cpu: "100m"
+              memory: "128Mi"
+            requests:
               cpu: "50m"
               memory: "64Mi"
-            requests:
-              cpu: "25m"
-              memory: "32Mi"
           readinessProbe:
             httpGet:
               path: /health
@@ -53,4 +53,4 @@ spec:
       targetPort: 80
   type: ClusterIP
 
-
+#a

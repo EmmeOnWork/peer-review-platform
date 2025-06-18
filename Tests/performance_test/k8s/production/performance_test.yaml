@@ -43,4 +43,3 @@ spec:
   activeDeadlineSeconds: 420
   ttlSecondsAfterFinished: 3600
 
-  #da

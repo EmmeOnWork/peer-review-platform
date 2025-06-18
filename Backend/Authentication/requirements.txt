@@ -1,0 +1,13 @@
+connexion[flask,swagger-ui,uvicorn]
+flask
+pymongo
+pydantic[email]
+a2wsgi
+uvicorn
+sqlalchemy
+psycopg2-binary
+bcrypt
+PyJWT
+cryptography
+gunicorn
+pytest

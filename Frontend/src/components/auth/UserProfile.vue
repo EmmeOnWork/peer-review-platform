@@ -1,76 +1,170 @@
 <template>
-  <div class="profile-page-background"> <!-- Sostituisce .profile-outer -->
-    <div class="profile-layout-container"> <!-- Contenitore per layout a due colonne -->
-
-      <!-- Profile Information Card (sostituisce .profile-container per la parte info) -->
-      <div class="profile-info-card">
-        <h2>Your Profile</h2>
-        <div v-if="loading" class="loading-placeholder">Loading...</div>
-        <div v-else>
-          <div class="profile-fields">
-            <div class="profile-field"><strong>Name:</strong> <span>{{ user.name }}</span></div>
-            <div class="profile-field"><strong>Surname:</strong> <span>{{ user.surname }}</span></div>
-            <div class="profile-field"><strong>Email:</strong> <span>{{ user.email }}</span></div>
-            <div class="profile-field"><strong>Role:</strong> <span>{{ user.role }}</span></div>
-            <div class="profile-field"><strong>Fiscal Code:</strong> <span>{{ user.fiscalCode }}</span></div>
-            <div class="profile-field"><strong>Birth Date:</strong> <span>{{ user.birthDate ? new Date(user.birthDate).toLocaleDateString() : 'N/A' }}</span></div>
-            <div class="profile-field"><strong>Residence:</strong> <span>{{ user.residence }}</span></div>
-            <div class="profile-field" v-if="user.serialNumber"><strong>Serial Number:</strong> <span>{{ user.serialNumber }}</span></div>
-          </div>
-          
-          <!-- Messaggio di errore principale, se presente -->
-          <div v-if="errorMessage && !editing" class="message error-message main-error">{{ errorMessage }}</div>
-
-          <!-- Bottoni centrati come nel tuo originale, ma con nuove classi -->
-          <div class="action-buttons"> <!-- Sostituisce .center-btns -->
-            <button class="btn modify-btn" @click="editing = !editing"> <!-- Sostituisce .edit-btn -->
-              {{ editing ? 'Cancel' : 'Edit Profile' }}
-            </button>
-            <button class="btn danger-btn" @click="handleLogout">Logout</button> <!-- Sostituisce .logout-btn (ora danger-btn per coerenza) -->
-          </div>
+  <div class="profile-page">
+    <div class="profile-container">
+      <!-- Profile Header -->
+      <div class="profile-header">
+        <div class="profile-avatar">
+          <i class="fas fa-user"></i>
         </div>
+        <h2>Your Profile</h2>
+        <p class="profile-subtitle">Manage your account information and settings</p>
       </div>
 
-      <!-- Editing Panel Card (sostituisce .edit-form-dropdown.right-dropdown) -->
-      <transition name="slide-from-right"> <!-- Transizione aggiornata -->
-        <div v-if="editing" class="edit-panel-card">
-          <h3>Edit Your Information</h3> <!-- Titolo per il pannello di modifica -->
+      <!-- Main Content -->
+      <div class="profile-content">
+        <!-- Profile Information Card -->
+        <div class="profile-info-card">
+          <div v-if="loading" class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading your profile...</span>
+          </div>
           
-          <!-- Residence Update Form -->
-          <form @submit.prevent="handleResidenceUpdate" class="edit-form-section"> <!-- Sostituisce .edit-form -->
-            <h4>Update Residence</h4> <!-- Sottotitolo per sezione -->
-            <div class="form-group">
-              <label for="residence">New residence</label>
-              <input type="text" id="residence" v-model="editResidence" required />
+          <div v-else class="profile-details">
+            <div class="profile-fields">
+              <div class="profile-field">
+                <div class="field-icon"><i class="fas fa-user"></i></div>
+                <div class="field-content">
+                  <strong>Name</strong>
+                  <span>{{ user.name }}</span>
+                </div>
+              </div>
+              
+              <div class="profile-field">
+                <div class="field-icon"><i class="fas fa-user-tag"></i></div>
+                <div class="field-content">
+                  <strong>Surname</strong>
+                  <span>{{ user.surname }}</span>
+                </div>
+              </div>
+              
+              <div class="profile-field">
+                <div class="field-icon"><i class="fas fa-envelope"></i></div>
+                <div class="field-content">
+                  <strong>Email</strong>
+                  <span>{{ user.email }}</span>
+                </div>
+              </div>
+              
+              <div class="profile-field">
+                <div class="field-icon"><i class="fas fa-user-shield"></i></div>
+                <div class="field-content">
+                  <strong>Role</strong>
+                  <span class="role-badge" :class="user.role?.toLowerCase()">{{ user.role }}</span>
+                </div>
+              </div>
+              
+              <div class="profile-field">
+                <div class="field-icon"><i class="fas fa-id-card"></i></div>
+                <div class="field-content">
+                  <strong>Fiscal Code</strong>
+                  <span>{{ user.fiscalCode }}</span>
+                </div>
+              </div>
+              
+              <div class="profile-field">
+                <div class="field-icon"><i class="fas fa-calendar"></i></div>
+                <div class="field-content">
+                  <strong>Birth Date</strong>
+                  <span>{{ user.birthDate ? new Date(user.birthDate).toLocaleDateString() : 'N/A' }}</span>
+                </div>
+              </div>
+              
+              <div class="profile-field">
+                <div class="field-icon"><i class="fas fa-home"></i></div>
+                <div class="field-content">
+                  <strong>Residence</strong>
+                  <span>{{ user.residence }}</span>
+                </div>
+              </div>
+              
+              <div class="profile-field" v-if="user.serialNumber">
+                <div class="field-icon"><i class="fas fa-hashtag"></i></div>
+                <div class="field-content">
+                  <strong>Serial Number</strong>
+                  <span>{{ user.serialNumber }}</span>
+                </div>
+              </div>
             </div>
-            <button type="submit" class="btn save-btn">Save residence</button> <!-- Mantiene .save-btn -->
-            <div v-if="residenceSuccess" class="message success-message">{{ residenceSuccess }}</div>
-            <div v-if="residenceError" class="message error-message">{{ residenceError }}</div>
-          </form>
+            
+            <div v-if="errorMessage && !editing" class="message error-message">
+              <i class="fas fa-exclamation-triangle"></i>
+              {{ errorMessage }}
+            </div>
 
-          <hr class="form-separator" />
-
-          <!-- Password Update Form -->
-          <form @submit.prevent="handlePasswordUpdate" class="edit-form-section"> <!-- Sostituisce .edit-form -->
-            <h4>Change Password</h4> <!-- Sottotitolo per sezione -->
-            <div class="form-group">
-              <label for="oldPassword">Current password</label>
-              <input type="password" id="oldPassword" v-model="oldPassword" required />
+            <div class="action-buttons">
+              <button class="btn edit-btn" @click="editing = !editing">
+                <i class="fas" :class="editing ? 'fa-times' : 'fa-edit'"></i>
+                {{ editing ? 'Cancel' : 'Edit Profile' }}
+              </button>
+              <button class="btn logout-btn" @click="handleLogout">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+              </button>
             </div>
-            <div class="form-group">
-              <label for="newPassword">New password</label>
-              <input type="password" id="newPassword" v-model="newPassword" required />
-            </div>
-            <div class="form-group">
-              <label for="confirmPassword">Confirm new password</label>
-              <input type="password" id="confirmPassword" v-model="confirmPassword" required />
-            </div>
-            <button type="submit" class="btn save-btn">Change password</button> <!-- Mantiene .save-btn -->
-            <div v-if="passwordSuccess" class="message success-message">{{ passwordSuccess }}</div>
-            <div v-if="passwordError" class="message error-message">{{ passwordError }}</div>
-          </form>
+          </div>
         </div>
-      </transition>
+
+        <!-- Edit Panel -->
+        <transition name="slide-in">
+          <div v-if="editing" class="edit-panel">
+            <div class="edit-panel-header">
+              <h3><i class="fas fa-edit"></i> Edit Your Information</h3>
+            </div>
+            
+            <div class="edit-panel-content">
+              <!-- Residence Update Form -->
+              <form @submit.prevent="handleResidenceUpdate" class="edit-form">
+                <div class="form-section">
+                  <h4><i class="fas fa-home"></i> Update Residence</h4>
+                  <div class="form-group">
+                    <label for="residence">New residence</label>
+                    <input type="text" id="residence" v-model="editResidence" required placeholder="Enter your new residence" />
+                  </div>
+                  <button type="submit" class="btn save-btn">
+                    <i class="fas fa-save"></i> Save residence
+                  </button>
+                  <div v-if="residenceSuccess" class="message success-message">
+                    <i class="fas fa-check-circle"></i> {{ residenceSuccess }}
+                  </div>
+                  <div v-if="residenceError" class="message error-message">
+                    <i class="fas fa-exclamation-triangle"></i> {{ residenceError }}
+                  </div>
+                </div>
+              </form>
+
+              <div class="form-separator"></div>
+
+              <!-- Password Update Form -->
+              <form @submit.prevent="handlePasswordUpdate" class="edit-form">
+                <div class="form-section">
+                  <h4><i class="fas fa-lock"></i> Change Password</h4>
+                  <div class="form-group">
+                    <label for="oldPassword">Current password</label>
+                    <input type="password" id="oldPassword" v-model="oldPassword" required placeholder="Enter current password" />
+                  </div>
+                  <div class="form-group">
+                    <label for="newPassword">New password</label>
+                    <input type="password" id="newPassword" v-model="newPassword" required placeholder="Enter new password" />
+                  </div>
+                  <div class="form-group">
+                    <label for="confirmPassword">Confirm new password</label>
+                    <input type="password" id="confirmPassword" v-model="confirmPassword" required placeholder="Confirm new password" />
+                  </div>
+                  <button type="submit" class="btn save-btn">
+                    <i class="fas fa-key"></i> Change password
+                  </button>
+                  <div v-if="passwordSuccess" class="message success-message">
+                    <i class="fas fa-check-circle"></i> {{ passwordSuccess }}
+                  </div>
+                  <div v-if="passwordError" class="message error-message">
+                    <i class="fas fa-exclamation-triangle"></i> {{ passwordError }}
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </transition>
+      </div>
     </div>
   </div>
 </template>
@@ -234,280 +328,362 @@ onMounted(() => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
-:root { 
-  --primary-color: #f4b660;
-  --primary-hover-color: #e0a850; 
-  --danger-color: #e74c3c; 
-  --danger-hover-color: #c0392b;
-  --success-color: #2ecc71; /* Verde per i messaggi di successo */
-  --success-text-color: #27ae60; /* Testo per messaggi di successo */
-  --error-text-color: #c0392b; /* Testo per messaggi di errore */
-  --text-primary: #2c3e50;
-  --text-secondary: #555;
-  --bg-light: #f8f9fa; /* Sfondo pagina come da richiesta */
-  --bg-white: #ffffff; /* Sfondo card */
-  --border-color: #cccccc; 
-  --card-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-  --input-focus-shadow: 0 0 0 3px rgba(244, 182, 96, 0.4);
-  --border-radius-md: 8px;
-  --border-radius-lg: 12px;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-.profile-page-background {
+.profile-page {
   min-height: 100vh;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.profile-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.profile-header {
+  text-align: center;
+  margin-bottom: 40px;
+  background: white;
+  padding: 40px 30px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
   display: flex;
-  align-items: flex-start; /* Allinea le card in alto */
+  align-items: center;
   justify-content: center;
-  background-color: var(--bg-light, #f8f9fa);
-  padding: 40px 20px;
-  font-family: 'Poppins', sans-serif;
+  margin: 0 auto 20px;
+  color: white;
+  font-size: 2rem;
 }
 
-.profile-layout-container {
-  display: flex;
-  flex-wrap: wrap;
+.profile-header h2 {
+  color: #2c3e50;
+  font-size: 2.2rem;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+}
+
+.profile-subtitle {
+  color: #6c757d;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.profile-content {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 30px;
-  width: 100%;
-  max-width: 1000px; /* O la larghezza che preferisci per il layout a due colonne */
-  align-items: flex-start;
 }
 
-.profile-info-card,
-.edit-panel-card {
-  background-color: var(--bg-white, #ffffff);
-  border-radius: var(--border-radius-lg, 12px);
-  box-shadow: var(--card-shadow, 0 8px 25px rgba(0, 0, 0, 0.08));
-  padding: 30px 35px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-color, #cccccc);
+@media (min-width: 1024px) {
+  .profile-content {
+    grid-template-columns: 2fr 1fr;
+  }
 }
 
 .profile-info-card {
-  flex: 1; 
-  min-width: 320px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
-.edit-panel-card { /* Questo sostituisce .edit-form-dropdown.right-dropdown */
-  width: 100%; 
-  max-width: 400px; 
-  flex-shrink: 0;
-  /* Non più position:absolute, ma parte del flusso flex */
-}
-
-@media (min-width: 860px) { /* Adatta questo breakpoint se necessario */
-  /* Stili specifici per quando il layout è a due colonne */
-}
-
-h2, h3, h4 {
-  color: var(--text-primary, #2c3e50);
-  margin-bottom: 25px;
-  font-weight: 600;
-}
-h2 { /* Titolo principale del profilo */
-  font-size: 1.8rem;
-  text-align: center; /* Come nel tuo originale */
-  width: 100%;
-}
-h3 { /* Titolo del pannello di modifica */
-  font-size: 1.5rem;
-  text-align: center;
-  border-bottom: 1px solid var(--border-color, #cccccc);
-  padding-bottom: 15px;
-}
-h4 { /* Sottotitoli nei form */
-  font-size: 1.2rem;
-  color: var(--text-secondary, #555);
-  margin-bottom: 20px;
-  text-align: left;
-}
-
-.loading-placeholder { /* Stile per il messaggio di caricamento */
-  text-align: center;
-  padding: 40px 0;
-  color: var(--text-secondary, #555);
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 30px;
+  color: #667eea;
   font-size: 1.1rem;
+  gap: 15px;
+}
+
+.loading-state i {
+  font-size: 2rem;
+}
+
+.profile-details {
+  padding: 40px 30px;
 }
 
 .profile-fields {
-  width: 100%;
-  margin-bottom: 20px; /* Aumentato leggermente per più spazio prima dei bottoni */
+  margin-bottom: 30px;
 }
 
 .profile-field {
-  margin-bottom: 15px; /* Aumentato per leggibilità */
-  font-size: 1rem; /* Leggermente ridotto per coerenza con altri testi */
-  color: var(--text-secondary, #555);
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-}
-.profile-field strong {
-  color: var(--text-primary, #2c3e50);
-  font-weight: 500;
-  margin-right: 8px;
-  min-width: 120px; 
-  display: inline-block;
-}
-.profile-field span {
-  word-break: break-word;
-}
-
-.action-buttons { /* Sostituisce .center-btns */
-  display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 20px; /* Leggermente ridotto */
-  margin: 25px 0 15px 0; /* Margini aggiornati */
-  width: 100%;
+  padding: 20px 0;
+  border-bottom: 1px solid #f1f3f4;
+  gap: 20px;
 }
 
-.btn { /* Stile base per tutti i bottoni, poi specializzato */
-  padding: 12px 25px;
-  border: none;
-  border-radius: var(--border-radius-md, 8px);
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-  text-align: center;
-  min-width: 140px;
-}
-.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-}
-.btn:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: none;
-}
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.profile-field:last-child {
+  border-bottom: none;
 }
 
-.modify-btn { /* Per Edit Profile / Cancel Edit */
-  background-color: var(--primary-color, #f4b660);
-  color: var(--bg-white, #ffffff);
-}
-.modify-btn:hover:not(:disabled) {
-  background-color: var(--primary-hover-color, #e0a850);
-}
-
-.danger-btn { /* Per Logout */
-  background-color: var(--danger-color, #e74c3c);
-  color: var(--bg-white, #ffffff);
-}
-.danger-btn:hover:not(:disabled) {
-  background-color: var(--danger-hover-color, #c0392b);
+.field-icon {
+  width: 40px;
+  height: 40px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #667eea;
+  font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
-.save-btn { /* Per Save Residence / Change Password */
-  background-color: var(--primary-color, #f4b660);
-  color: var(--bg-white, #ffffff);
-  width: 100%; /* Occupa tutta la larghezza nel form */
-  margin-top: 10px; /* Spazio sopra il bottone nel form */
-}
-.save-btn:hover:not(:disabled) {
-  background-color: var(--primary-hover-color, #e0a850);
-}
-
-
-.edit-form-section { /* Sostituisce .edit-form */
-  margin-bottom: 20px; /* Spazio tra le sezioni del form */
-  width: 100%;
+.field-content {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center; /* Centra il contenuto se necessario, ma con width 100% non dovrebbe servire */
+  gap: 5px;
+}
+
+.field-content strong {
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.field-content span {
+  color: #495057;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.role-badge.teacher {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.role-badge.student {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 30px;
+  padding-top: 30px;
+  border-top: 1px solid #f1f3f4;
+}
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.edit-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.edit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.logout-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.logout-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3);
+}
+
+.save-btn {
+  background: #28a745;
+  color: white;
+  width: 100%;
+  margin-top: 15px;
+}
+
+.save-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+}
+
+.edit-panel {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.edit-panel-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 25px 30px;
+}
+
+.edit-panel-header h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-panel-content {
+  padding: 30px;
+}
+
+.edit-form {
+  width: 100%;
+}
+
+.form-section {
+  margin-bottom: 30px;
+}
+
+.form-section h4 {
+  color: #2c3e50;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .form-group {
-  margin-bottom: 18px; /* Aumentato spazio */
-  width: 100%;
+  margin-bottom: 20px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px; /* Aumentato spazio */
-  font-weight: 500;
-  color: var(--text-secondary, #555);
-  font-size: 0.95rem; /* Leggermente più piccolo per le label */
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
 }
 
-input[type="text"], input[type="password"] {
+input[type="text"],
+input[type="password"] {
   width: 100%;
-  padding: 12px 15px; /* Padding aumentato */
-  border: 1px solid var(--border-color, #cccccc); /* Bordo come da richiesta */
-  border-radius: var(--border-radius-md, 8px); /* Raggio aggiornato */
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
   font-size: 1rem;
-  font-family: 'Poppins', sans-serif; /* Applica il font */
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
 }
-input[type="text"]:focus, input[type="password"]:focus {
+
+input:focus {
   outline: none;
-  border-color: var(--primary-color, #f4b660);
-  box-shadow: var(--input-focus-shadow, 0 0 0 3px rgba(244, 182, 96, 0.3));
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .form-separator {
-  margin: 30px 0; /* Aumentato spazio */
-  border: none;
-  border-top: 1px solid var(--border-color, #cccccc); /* Bordo più visibile */
-  width: 100%;
+  height: 1px;
+  background: #e9ecef;
+  margin: 40px 0;
 }
 
-/* Stili per i messaggi di successo ed errore */
 .message {
-  padding: 12px 15px;
+  padding: 12px 16px;
+  border-radius: 8px;
   margin-top: 15px;
-  border-radius: var(--border-radius-md, 8px);
-  font-size: 0.95rem;
-  text-align: center;
-  border-width: 1px;
-  border-style: solid;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
 }
+
 .success-message {
-  background-color: #e6f9f0; /* Sfondo verde chiaro */
-  color: var(--success-text-color, #27ae60);
-  border-color: var(--success-color, #2ecc71);
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 }
+
 .error-message {
-  background-color: #fdeded; /* Sfondo rosso chiaro */
-  color: var(--error-text-color, #c0392b); 
-  border-color: var(--danger-color, #e74c3c);
-}
-.main-error { /* Messaggio di errore principale nel box del profilo */
-  margin-bottom: 20px; /* Spazio sotto se è il messaggio di errore principale */
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
 
-
-/* Transizione per il pannello di modifica */
-.slide-from-right-enter-active,
-.slide-from-right-leave-active {
+.slide-in-enter-active,
+.slide-in-leave-active {
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-.slide-from-right-enter-from,
-.slide-from-right-leave-to {
+
+.slide-in-enter-from,
+.slide-in-leave-to {
   opacity: 0;
-  transform: translateX(50px); /* Scorre da destra */
+  transform: translateX(30px);
 }
-/* Rimuovo la vecchia transizione slide-fade se non più usata per il dropdown */
-/*
-.slide-fade-enter-active, .slide-fade-leave-active {
-  transition: all 0.3s;
+
+@media (max-width: 768px) {
+  .profile-page {
+    padding: 10px;
+  }
+  
+  .profile-header {
+    padding: 30px 20px;
+  }
+  
+  .profile-details,
+  .edit-panel-content {
+    padding: 20px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+  
+  .profile-field {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .field-content {
+    width: 100%;
+  }
 }
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  opacity: 0;
-  transform: translateY(40px);
-}
-*/
 </style>

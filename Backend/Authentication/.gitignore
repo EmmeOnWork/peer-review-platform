@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.log
+
+# Virtual environments
+venv/
+env/
+
+# IDEs & Editors
+.vscode/
+.idea/
+
+# Pytest
+.pytest_cache/
+
+# Docker
+*.tar
+*.bak
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Misc
+*.swp
