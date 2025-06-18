@@ -245,6 +245,6 @@ def search_students_by_name_surname(token_info, name: str = None, surname: str =
     
     return results, 200
 
-# funzione di health
+# funzione di health check
 def health_check():
     return {"status": "OK"}, 200
