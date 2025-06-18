@@ -50,14 +50,16 @@ spec:
             httpGet:
               path: /health
               port: 5000
-            initialDelaySeconds: 10
-            periodSeconds: 5
+            initialDelaySeconds: 30  # Aumentato da 10
+            periodSeconds: 10        # Aumentato da 5
+            timeoutSeconds: 5        # Aggiunto timeout
           readinessProbe:
             httpGet:
               path: /health
               port: 5000
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 15  # Aumentato da 5
+            periodSeconds: 10        # Aumentato da 5
+            timeoutSeconds: 5        # Aggiunto timeout
 
 ---
 
