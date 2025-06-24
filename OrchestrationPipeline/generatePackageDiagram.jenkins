@@ -39,5 +39,11 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     sh "plantuml -tpng ${pumlFilePath}"
 
     echo "Diagramma dei package generato: ${outputDir}/package_diagram.png"
+        
+    sh """
+        git add ${outputDir}/package_diagram.*
+        git commit -m "Update package diagram [ci skip]" || echo "No changes to commit"
+        git push origin HEAD:master
+    """
 }
 

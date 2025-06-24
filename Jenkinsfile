@@ -12,12 +12,6 @@ pipeline {
     }
 
     stages {
-        stage('Pulizia Workspace') {
-            steps {
-                deleteDir()
-                echo "Pulizia workspace completata."
-            }
-        }
         stage('Checkout') {
             steps {
                 checkout([
@@ -31,6 +25,28 @@ pipeline {
                         refspec: '+refs/heads/*:refs/remotes/origin/*'
                     ]]
                 ])
+            }
+        }
+
+        stage('Check [ci skip]') {
+            steps {
+                script {
+                    def commitMsg = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    if (commitMsg.contains('[ci skip]')) {
+                        echo "Commit contiene [ci skip]: la pipeline verrÃ saltata."
+                        // Interrompe l'esecuzione senza errore
+                        currentBuild.result = 'SUCCESS'
+                        // Usa `error` per saltare fasi successive senza marcare come FAILURE
+                        error('Skip build per [ci skip]')
+                    }
+                }
+            }
+        }
+
+        stage('Pulizia Workspace') {
+            steps {
+                deleteDir()
+                echo "Pulizia workspace completata."
             }
         }
 
