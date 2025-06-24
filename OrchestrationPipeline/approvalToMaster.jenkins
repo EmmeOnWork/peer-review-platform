@@ -4,7 +4,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     def teamEmails = ['member1@example.com', 'member2@example.com', 'member3@example.com']
     // Info branch
     def branch = env.BRANCH_NAME ?: 'unknown'
-    def stagingUrl = 'https://pre-release.peer-review:8888' //aggiornare una volta configurato tls
+    def stagingUrl = 'https://pre-release.peer-review' //aggiornare una volta configurato tls
     
     
 
@@ -46,8 +46,6 @@ Ciao team,
 Attivare la VPN
 
 Controllare che l'ambiente di host dns sia correttamente configurato per il dominio pre-release.peer-review. (etc/hosts)
-Attivare il port forwarding per accedere all'ambiente di staging con il comando: 
-"ssh -L 8888:192.168.49.2:31487 ci-user@INTERNAL_HOST"
 
 Accedi all'ambiente di staging dal tuo browser per eseguire i test E2E e la review:
 ${stagingUrl}
