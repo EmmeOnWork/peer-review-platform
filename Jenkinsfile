@@ -30,13 +30,11 @@ pipeline {
 
         stage('Check [ci skip]') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'SUCCESS') {
-                    script {
-                        def commitMsg = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
-                        if (commitMsg.contains('[ci skip]')) {
-                            echo "Commit contiene [ci skip]: la pipeline verrà saltata."
-                            error('Skip build per [ci skip]')
-                        }
+                script {
+                    def commitMsg = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    if (commitMsg.contains('[ci skip]')) {
+                        echo "Commit contiene [ci skip]: la pipeline verrà saltata."
+                        return
                     }
                 }
             }
