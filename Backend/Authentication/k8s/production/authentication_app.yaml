@@ -39,7 +39,7 @@ spec:
               value: "postgres-headless-service"
             - name: POSTGRES_PORT
               value: "5432"
-          resources:
+          resources: # Pesi aggiornati
             requests:
               cpu: "50m"
               memory: "192Mi"
