@@ -99,8 +99,8 @@ pipeline {
             script {
                 echo "Pipeline fallita su ${env.BRANCH_NAME}"
                 echo "Pulizia risorse..."
-                sh "kubectl delete namespace staging --wait=true || true"
-                sh "kubectl delete namespace pre-release --wait=true || true"
+                sh "microk8s kubectl delete namespace staging --wait=true || true"
+                sh "microk8s kubectl delete namespace pre-release --wait=true || true"
                 load "${ORCHESTRATION_DIR}/notificationsFailure.jenkins" //modulo per notifiche email/slack ecc di failure al pusher
             }
         }
@@ -108,16 +108,16 @@ pipeline {
             script {
                 echo "Pipeline completata con successo su ${env.BRANCH_NAME}"
                 echo "Pulizia risorse in eccesso..." //ci si assicura che non ci siano risorse residue dopo il deploy o dopo aver compiuto le azioni desiderate che possano occupare spazio
-                sh "kubectl delete namespace staging --wait=true || true"
-                sh "kubectl delete namespace pre-release --wait=true || true"
+                sh "microk8s kubectl delete namespace staging --wait=true || true"
+                sh "microk8s kubectl delete namespace pre-release --wait=true || true"
             }
         }
         aborted {
             script {
                 echo "Pipeline ABORTED su ${env.BRANCH_NAME}"
                 echo "Pulizia risorse..."
-                sh "kubectl delete namespace staging --wait=true || true"
-                sh "kubectl delete namespace pre-release --wait=true || true"
+                sh "microk8s kubectl delete namespace staging --wait=true || true"
+                sh "microk8s kubectl delete namespace pre-release --wait=true || true"
                 load "${ORCHESTRATION_DIR}/notificationsFailure.jenkins" //modulo per notifiche email/slack ecc di failure al pusher
             }
         }

@@ -25,7 +25,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
 
         // Esegui come job per poterlo cancellare
         sh """
-            kubectl run kube-hunter \
+            microk8s kubectl run kube-hunter \
                 --image=aquasec/kube-hunter \
                 --restart=Never \
                 --namespace=${NAMESPACE} \
@@ -34,11 +34,11 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
 
     } catch (Exception e) {
         echo "Errore durante il controllo di sicurezza: ${e.message}"
-        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+        sh "microk8s kubectl delete namespace ${NAMESPACE} --wait=true || true"
         echo ("Controllo sicurezza fallito.")
     } finally {
         echo "Pulizia finale: eliminazione del namespace"
-        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+        sh "microk8s kubectl delete namespace ${NAMESPACE} --wait=true || true"
     }
 
     echo "Controllo sicurezza completato. Verifica i log di build Jenkins per i dettagli."

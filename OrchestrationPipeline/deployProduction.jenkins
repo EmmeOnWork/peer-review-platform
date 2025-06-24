@@ -22,7 +22,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     }
 
     // Crea namespace se non esiste
-    sh "kubectl get namespace ${NAMESPACE} || kubectl create namespace ${NAMESPACE}"
+    sh "microk8s kubectl get namespace ${NAMESPACE} || microk8s kubectl create namespace ${NAMESPACE}"
 
     // Deploy di tutti i servizi (Frontend + Backend)
     def serviceDirs = []
@@ -45,38 +45,38 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         }
         yamlFiles.each { file ->
             echo "Applico ${file} su ${NAMESPACE}..."
-            sh "kubectl apply -f ${file} --namespace=${NAMESPACE}"
+            sh "microk8s kubectl apply -f ${file} --namespace=${NAMESPACE}"
         }
     }
     // Applica Ingress già presente nella cartella Ingress
     def ingressFile = "Ingress/ingress_production.yaml"
     if (fileExists(ingressFile)) {
         echo "Applico Ingress da ${ingressFile}..."
-        sh "kubectl apply -f ${ingressFile} --namespace=${NAMESPACE}"
+        sh "microk8s kubectl apply -f ${ingressFile} --namespace=${NAMESPACE}"
     } else {
         error "File ${ingressFile} non trovato. Pipeline interrotta."
     }
 
     // Rollout restart di tutti i deployment nel namespace
     echo "Eseguo rollout restart di tutti i deployment su ${NAMESPACE}..."
-    sh "kubectl rollout restart deployment -n ${NAMESPACE}"
+    sh "microk8s kubectl rollout restart deployment -n ${NAMESPACE}"
 
     // Attendi che tutti i deployment abbiano completato il rollout
     def deployments = sh(
-        script: "kubectl get deployments -n ${NAMESPACE} -o jsonpath='{.items[*].metadata.name}'",
+        script: "microk8s kubectl get deployments -n ${NAMESPACE} -o jsonpath='{.items[*].metadata.name}'",
         returnStdout: true
     ).trim().split(' ')
     deployments.each { dep ->
         if (dep?.trim()) {
             echo "Attendo il completamento del rollout per deployment: ${dep}"
-            sh "kubectl rollout status deployment/${dep} -n ${NAMESPACE} --timeout=300s"
+            sh "microk8s kubectl rollout status deployment/${dep} -n ${NAMESPACE} --timeout=300s"
         }
     }
 
     // Attendi che tutti i pod siano Running
     timeout(time: 5, unit: 'MINUTES') {
         waitUntil {
-            def podStatus = sh(script: "kubectl get pods --namespace=${NAMESPACE} --no-headers", returnStdout: true).trim()
+            def podStatus = sh(script: "microk8s kubectl get pods --namespace=${NAMESPACE} --no-headers", returnStdout: true).trim()
             if (!podStatus) {
                 echo "Nessun pod trovato. Attendo..."
                 return false
@@ -92,7 +92,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     }
     // Dopo il timeout, se non tutti i pod sono Running, blocca la pipeline
     def notRunningPods = sh(
-        script: "kubectl get pods --namespace=${NAMESPACE} --no-headers | awk '\$3 != \"Running\" {print \$1, \$3}' || true",
+        script: "microk8s kubectl get pods --namespace=${NAMESPACE} --no-headers | awk '\$3 != \"Running\" {print \$1, \$3}' || true",
         returnStdout: true
     ).trim()
     if (notRunningPods) {

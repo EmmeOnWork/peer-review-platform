@@ -22,7 +22,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         if (!fileExists(K8S_PATH)) {
             error "La directory ${K8S_PATH} non esiste. Pipeline interrotta."
         }
-        sh "kubectl apply -f ${K8S_PATH}/ --namespace=${NAMESPACE}"
+        sh "microk8s kubectl apply -f ${K8S_PATH}/ --namespace=${NAMESPACE}"
         echo "YAML applicati correttamente."
 
         echo "Attendo completamento del job 'integration-tests' (controllo solo i pod)..."
@@ -30,7 +30,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
             waitUntil {
                 // Recupera tutti i pod associati al job
                 def podPhases = sh(
-                    script: "kubectl get pods -n ${NAMESPACE} -l job-name=integration-tests -o jsonpath='{.items[*].status.phase}' || echo ''",
+                    script: "microk8s kubectl get pods -n ${NAMESPACE} -l job-name=integration-tests -o jsonpath='{.items[*].status.phase}' || echo ''",
                     returnStdout: true
                 ).trim().split(' ')
 
@@ -43,7 +43,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
                 // Se tutti i pod sono Failed, il test è fallito
                 if (podPhases.every { it == "Failed" } && podPhases.size() > 0) {
                     echo "Log del job integration-tests:"
-                    sh "kubectl logs job/integration-tests -n ${NAMESPACE} || true"
+                    sh "microk8s kubectl logs job/integration-tests -n ${NAMESPACE} || true"
                     error("Job 'integration-tests' fallito.")
                 }
                 // Altrimenti attendi ancora
@@ -52,19 +52,19 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         }
 
         echo "Job completato con successo. Recupero log..."
-        sh "kubectl logs job/integration-tests -n ${NAMESPACE} || true"
+        sh "microk8s kubectl logs job/integration-tests -n ${NAMESPACE} || true"
 
     } catch (Exception e) {
         echo "Errore durante l'esecuzione: ${e.message}"
         echo "Pulizia  del namespace '${NAMESPACE}'"
-        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+        sh "microk8s kubectl delete namespace ${NAMESPACE} --wait=true || true"
         sh "docker rmi ${IMAGE_NAME} || true"
         cleanupExecuted = true
         error("Deploy/test fallito. Pipeline interrotta.")
     } finally {
         if (!cleanupExecuted) {
             echo "Pulizia finale del job 'integration-tests' nel namespace '${NAMESPACE}'..."
-            sh "kubectl delete job integration-tests -n ${NAMESPACE} --ignore-not-found=true || true"
+            sh "microk8s kubectl delete job integration-tests -n ${NAMESPACE} --ignore-not-found=true || true"
             sh "docker rmi ${IMAGE_NAME} || true"
         }
     }
