@@ -41,10 +41,10 @@ spec:
               value: "5432"
           resources:
             requests:
-              cpu: "75m"
+              cpu: "40m"
               memory: "96Mi"
             limits:
-              cpu: "150m"
+              cpu: "80m"
               memory: "192Mi"
           livenessProbe:
             httpGet:

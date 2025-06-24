@@ -12,26 +12,23 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: ingress-prerelease
-  namespace: pre-release 
+  namespace: pre-release
   annotations:
-    kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true" 
-    nginx.ingress.kubernetes.io/rewrite-target: / # Inoltra tutto così com'è al tuo Nginx frontend
+    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
-  ingressClassName: nginx
   tls:
     - hosts:
         - pre-release.peer-review
-      secretName: pre-release-tls-secret 
+      secretName: pre-release-tls-secret
   rules:
     - host: pre-release.peer-review
       http:
         paths:
-          - path: / # Cattura TUTTO il traffico per questo host
-            pathType: Prefix 
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: frontend-service
                 port:
-                  number: 80 # La porta del Service K8s del tuo Nginx customizzato
+                  number: 80
              
