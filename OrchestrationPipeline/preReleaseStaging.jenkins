@@ -24,7 +24,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     try {
         echo "Inizio deploy nel namespace '${NAMESPACE}'"
         // Crea namespace se non esiste
-        sh "kubectl create namespace ${NAMESPACE} || kubectl get namespace ${NAMESPACE} || true"
+        sh "microk8s kubectl create namespace ${NAMESPACE} || microk8s kubectl get namespace ${NAMESPACE} || true"
         // Raccoglie i servizi Frontend e Backend
         def serviceDirs = []
         if (dirExists('Frontend')) {
@@ -47,21 +47,21 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
             }
             yamlFiles.each { file ->
                 echo "Applico ${file} su ${NAMESPACE}..."
-                sh "kubectl apply -f ${file} --namespace=${NAMESPACE}"
+                sh "microk8s kubectl apply -f ${file} --namespace=${NAMESPACE}"
             }
         }
         // Applica Ingress già presente nella cartella Ingress
         def ingressFile = "Ingress/ingress_pre-release.yaml"
         if (fileExists(ingressFile)) {
             echo "Applico Ingress da ${ingressFile}..."
-            sh "kubectl apply -f ${ingressFile} --namespace=${NAMESPACE}"
+            sh "microk8s kubectl apply -f ${ingressFile} --namespace=${NAMESPACE}"
         } else {
             error "File ${ingressFile} non trovato. Pipeline interrotta."
         }
         // Attesa stato Running e nessun restart
         timeout(time: 5, unit: 'MINUTES') {
             waitUntil {
-                def podStatus = sh(script: "kubectl get pods --namespace=${NAMESPACE} --no-headers", returnStdout: true).trim()
+                def podStatus = sh(script: "microk8s kubectl get pods --namespace=${NAMESPACE} --no-headers", returnStdout: true).trim()
                 if (!podStatus) {
                     echo "Nessun pod trovato. Attendo..."
                     return false
@@ -78,7 +78,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         }
         // Verifica finale
         def notRunningPods = sh(
-            script: "kubectl get pods --namespace=${NAMESPACE} --no-headers | awk '\$3 != \"Running\" {print \$1, \$3}' || true",
+            script: "microk8s kubectl get pods --namespace=${NAMESPACE} --no-headers | awk '\$3 != \"Running\" {print \$1, \$3}' || true",
             returnStdout: true
         ).trim()
         if (notRunningPods) {
@@ -88,7 +88,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     } catch (Exception e) {
         echo "Errore durante il deploy su ${NAMESPACE}: ${e.message}"
         echo "Pulizia risorse nel namespace ${NAMESPACE}..."
-        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+        sh "microk8s kubectl delete namespace ${NAMESPACE} --wait=true || true"
         error("Deploy fallito. Pipeline terminata.")
     }
 }

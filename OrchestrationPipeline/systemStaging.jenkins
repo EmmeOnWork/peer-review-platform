@@ -102,7 +102,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
 
     } catch (Exception e) {
         echo "Errore durante il deploy su ${NAMESPACE}: ${e.message}"
-        sh "kubectl delete namespace ${NAMESPACE} --wait=true || true"
+        sh "microk8s kubectl delete namespace ${NAMESPACE} --wait=true || true"
         error("Deploy fallito, interrompo la pipeline.")
     }
 }

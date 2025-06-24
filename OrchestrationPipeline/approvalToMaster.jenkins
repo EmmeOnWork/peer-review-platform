@@ -78,7 +78,7 @@ Chi approva?""",
         ]
     )['approver']
     if (!approver) {
-        sh "kubectl delete namespace pre-release --wait=true || true"
+        sh "microk8s kubectl delete namespace pre-release --wait=true || true"
         error "Nessuno ha approvato il codice. Pipeline interrotta."
     }
     echo "Approvazione concessa da: ${approver}"

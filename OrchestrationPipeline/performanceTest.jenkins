@@ -16,11 +16,11 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         echo "Avvio del Job di performance test nel namespace: ${TARGET_NAMESPACE}"
 
         // Pulisce eventuali Job precedenti
-        sh "kubectl delete job locust-loadtest-job --namespace ${TARGET_NAMESPACE} --ignore-not-found=true"
+        sh "microk8s kubectl delete job locust-loadtest-job --namespace ${TARGET_NAMESPACE} --ignore-not-found=true"
 
         // Recupera dinamicamente l'IP del controller Ingress
         def ingressIp = sh(
-            script: "kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.spec.clusterIP}'",
+            script: "microk8s kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.spec.clusterIP}'",
             returnStdout: true
         ).trim()
         if (!ingressIp) {
@@ -32,7 +32,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         sh """
             export INGRESS_CONTROLLER_IP=${ingressIp}
             export TARGET_HOST_URL=${TARGET_HOST_URL}
-            envsubst < ${JOB_TEMPLATE} | kubectl apply -f - --namespace ${TARGET_NAMESPACE}
+            envsubst < ${JOB_TEMPLATE} | microk8s kubectl apply -f - --namespace ${TARGET_NAMESPACE}
         """
 
         echo "Job avviato. In attesa del completamento del test..."
@@ -40,7 +40,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         timeout(time: 7, unit: 'MINUTES') {
             waitUntil {
                 def podPhases = sh(
-                    script: "kubectl get pods -n ${TARGET_NAMESPACE} -l job-name=locust-loadtest-job -o jsonpath='{.items[*].status.phase}' || echo ''",
+                    script: "microk8s kubectl get pods -n ${TARGET_NAMESPACE} -l job-name=locust-loadtest-job -o jsonpath='{.items[*].status.phase}' || echo ''",
                     returnStdout: true
                 ).trim().split(' ')
                 echo "Stati pod locust-loadtest-job: ${podPhases}"
@@ -51,7 +51,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
                 // Se tutti i pod sono Failed, il test è fallito
                 if (podPhases.every { it == "Failed" } && podPhases.size() > 0) {
                     echo "Log del job locust-loadtest-job:"
-                    sh "kubectl logs job/locust-loadtest-job -n ${TARGET_NAMESPACE} || true"
+                    sh "microk8s kubectl logs job/locust-loadtest-job -n ${TARGET_NAMESPACE} || true"
                     error("Job 'locust-loadtest-job' fallito.")
                 }
                 // Altrimenti attendi ancora
@@ -60,15 +60,15 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         }
 
         echo "Job completato con successo. Recupero log..."
-        sh "kubectl logs job/locust-loadtest-job -n ${TARGET_NAMESPACE} || true"
+        sh "microk8s kubectl logs job/locust-loadtest-job -n ${TARGET_NAMESPACE} || true"
 
     } catch (e) {
         echo "Performance test fallito o Job terminato con errore."
         sh """
             echo "--- Log del Pod di test fallito ---"
-            POD_NAME=\$(kubectl get pods --namespace ${TARGET_NAMESPACE} -l job-name=locust-loadtest-job -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+            POD_NAME=\$(microk8s kubectl get pods --namespace ${TARGET_NAMESPACE} -l job-name=locust-loadtest-job -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
             if [ -n "\$POD_NAME" ]; then
-                kubectl logs \$POD_NAME --namespace ${TARGET_NAMESPACE}
+                microk8s kubectl logs \$POD_NAME --namespace ${TARGET_NAMESPACE}
             else
                 echo "Nessun pod trovato per il Job, impossibile recuperare i log."
             fi
@@ -76,16 +76,16 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         // Rollback solo se siamo su production
         if (TARGET_NAMESPACE == 'production') {
             echo "Rollback di tutti i deployment in production..."
-            sh "kubectl rollout undo deployment -n production || true"
+            sh "microk8s kubectl rollout undo deployment -n production || true"
         }
         error("La pipeline è stata interrotta a causa del fallimento del test di carico.")
     } finally {
         echo "Pulizia delle risorse del Job..."
-        sh "kubectl delete job locust-loadtest-job --namespace ${TARGET_NAMESPACE} --ignore-not-found=true"
+        sh "microk8s kubectl delete job locust-loadtest-job --namespace ${TARGET_NAMESPACE} --ignore-not-found=true"
         // Elimina il namespace solo se sei su develop/pre-release
         if (TARGET_NAMESPACE == 'pre-release') {
             echo "Eliminazione del namespace pre-release..."
-            sh "kubectl delete namespace pre-release --wait=true || true"
+            sh "microk8s kubectl delete namespace pre-release --wait=true || true"
         }
     }
 }
