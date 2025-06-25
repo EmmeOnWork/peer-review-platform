@@ -27,7 +27,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         
         // Conversione diretta: nome cartella → endpoint lowercase
         backendDirs.each { dir ->
-            eps << "https://${host}/${dir.toLowerCase()}/health" //dinamico
+            eps << "https://${host}/${dir.toLowerCase()}/health" 
         }
         
         // Aggiungi sempre il frontend
