@@ -59,10 +59,10 @@ spec:
               value: "submissiondb"
           resources:
             requests:
-              cpu: "150m"
+              cpu: "125m"
               memory: "768Mi"
             limits:
-              cpu: "300m"
+              cpu: "250m"
               memory: "1229Mi"
           volumeMounts:
             - name: mongo-persistent-storage # Nome del volume definito in volumeClaimTemplates
@@ -141,10 +141,10 @@ spec:
         # Per una singola istanza, questo è sufficiente.
         resources: # Aggiungi resources se vuoi
             requests:
-              cpu: "50m"
+              cpu: "25m"
               memory: "128Mi"
             limits:
-              cpu: "150m"
+              cpu: "75m"
               memory: "256Mi"
         volumeMounts:
         - name: minio-data-storage # Nome del volume definito in volumeClaimTemplates

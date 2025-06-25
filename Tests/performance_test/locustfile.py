@@ -8,7 +8,6 @@ from locust import HttpUser, TaskSet, task, between, events
 import locust_plugins
 import urllib3
 
-# Questi path devono corrispondere ESATTAMENTE ai blocchi `location` in nginx.conf
 AUTH_API_PATH = "/auth/"
 ASSIGNMENT_API_PATH = "/assignments/"
 SUBMISSION_API_PATH = "/submissions/"
@@ -18,22 +17,6 @@ TEST_PASSWORD = "password123"
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
-
-class FrontendUser(HttpUser):
-    wait_time = between(1, 3)
-
-    @task(10)  # Maggiore peso per bombardare /health
-    def health_check(self):
-        self.client.get("/health/", name="GET /health/", verify=False)
-
-    @task(5)
-    def load_homepage(self):
-        self.client.get("/", name="GET /", verify=False)
-
-# Puoi aggiungere altri task per simulare navigazione su altre pagine della SPA
-
-# --- Aggiungere qui la logica per testare i servizi backend ---
 # --- Shared State Management (IMPROVEMENT) ---
 class SharedState:
     """Classe per contenere tutti i dati condivisi tra gli utenti Locust."""
@@ -96,46 +79,59 @@ class BaseLocustUser(HttpUser):
     user_role = None
     user_email = None
 
-    def _register_or_login(self):
-        first_name = random.choice(FIRST_NAMES_POOL)
-        last_name = random.choice(LAST_NAMES_POOL)
-        residence = f"{random.choice(CITIES_POOL)}, {random.choice(STREET_TYPES_POOL)} {random.choice(STREET_NAMES_POOL)}, {random.randint(1, 200)}"
-        birth_date_obj = date(random.randint(1960, 2003), random.randint(1, 12), random.randint(1, 28))
-        fiscal_code = generate_improved_fiscal_code(first_name, last_name)
-        self.user_email = generate_unique_email(f"{first_name}.{last_name}".lower().replace(" ", ""))
-        reg_data = {
-            "name": first_name, "surname": last_name, "email": self.user_email, "password": TEST_PASSWORD,
-            "role": self.user_role, "fiscalCode": fiscal_code, "birthDate": birth_date_obj.isoformat(),
-            "residence": residence
-        }
+# In BaseLocustUser
+def _register_or_login(self):
+    first_name = random.choice(FIRST_NAMES_POOL)
+    last_name = random.choice(LAST_NAMES_POOL)
+    residence = f"{random.choice(CITIES_POOL)}, {random.choice(STREET_TYPES_POOL)} {random.choice(STREET_NAMES_POOL)}, {random.randint(1, 200)}"
+    birth_date_obj = date(random.randint(1960, 2003), random.randint(1, 12), random.randint(1, 28))
+    fiscal_code = generate_improved_fiscal_code(first_name, last_name)
+    self.user_email = generate_unique_email(f"{first_name}.{last_name}".lower().replace(" ", ""))
+    reg_data = {
+        "name": first_name, "surname": last_name, "email": self.user_email, "password": TEST_PASSWORD,
+        "role": self.user_role, "fiscalCode": fiscal_code, "birthDate": birth_date_obj.isoformat(),
+        "residence": residence
+    }
 
-        with self.client.post(f"{AUTH_API_PATH}register", json=reg_data, name=f"/{self.user_role}/register", catch_response=True) as response:
-            if response.ok:
-                self.serial_number = response.json().get('serialNumber')
-                if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
-                    shared_state.available_student_serials.append(self.serial_number)
-                response.success()
-            elif response.status_code == 400 and ("already" in response.text.lower()):
-                response.success() # Consider it a success, we can now login
-            else:
-                response.failure(f"Registration failed: {response.status_code} - {response.text}")
-                return False
+    registration_successful = False # Aggiungiamo un flag
+    with self.client.post(f"{AUTH_API_PATH}register", json=reg_data, name=f"/{self.user_role}/register", catch_response=True) as response:
+        if response.ok: # Tipicamente 201 Created
+            self.serial_number = response.json().get('serialNumber')
+            if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
+                shared_state.available_student_serials.append(self.serial_number)
+            response.success()
+            registration_successful = True # Imposta il flag a True
+        
+        # Consideriamo un successo anche se l'utente esiste già, perché possiamo fare il login
+        elif response.status_code == 400 and ("already" in response.text.lower()):
+            response.success()
+            registration_successful = True # Imposta il flag a True
+        
+        else:
+            response.failure(f"Registration failed: {response.status_code} - {response.text}")
+            # NON impostiamo il flag, rimarrà False
 
-        login_data = {"email": self.user_email, "password": TEST_PASSWORD}
-        with self.client.post(f"{AUTH_API_PATH}login", json=login_data, name=f"/{self.user_role}/login", catch_response=True) as response:
-            if response.ok:
-                login_json = response.json()
-                self.token = login_json.get('access_token') or login_json.get('token')
-                user_data = login_json.get('user', {})
-                if not self.serial_number:
-                     self.serial_number = user_data.get('serialNumber')
-                     if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
-                         shared_state.available_student_serials.append(self.serial_number)
-                response.success()
-                return True
-            else:
-                response.failure(f"Login failed for {self.user_email}: {response.status_code} - {response.text}")
-                return False
+    # --- CONTROLLO CRUCIALE ---
+    # Se la registrazione non è andata a buon fine, esci subito.
+    if not registration_successful:
+        return False
+
+    # Il codice da qui in poi viene eseguito SOLO se la registrazione è OK.
+    login_data = {"email": self.user_email, "password": TEST_PASSWORD}
+    with self.client.post(f"{AUTH_API_PATH}login", json=login_data, name=f"/{self.user_role}/login", catch_response=True) as response:
+        if response.ok:
+            login_json = response.json()
+            self.token = login_json.get('access_token') or login_json.get('token')
+            user_data = login_json.get('user', {})
+            if not self.serial_number:
+                 self.serial_number = user_data.get('serialNumber')
+                 if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
+                     shared_state.available_student_serials.append(self.serial_number)
+            response.success()
+            return True # Login riuscito!
+        else:
+            response.failure(f"Login failed for {self.user_email}: {response.status_code} - {response.text}")
+            return False # Il login è fallito, l'utente si fermerà.
 
     def on_start(self):
         self.client.verify = False  # Disabilita verifica SSL

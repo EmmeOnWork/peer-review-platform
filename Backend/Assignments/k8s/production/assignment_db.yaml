@@ -47,10 +47,10 @@ spec:
                   key: mongo-root-password
           resources:
             requests:
-              cpu: "150m"
+              cpu: "125m"
               memory: "768Mi"
             limits:
-              cpu: "300m"
+              cpu: "250m"
               memory: "1229Mi"
           volumeMounts:
             - name: mongo-persistent-storage # Nome più descrittivo e coerente
