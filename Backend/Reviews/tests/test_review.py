@@ -24,8 +24,8 @@ from models import (
     PeerReviewAssignmentWithDetails as PeerReviewAssignment,
     ManualAssignmentRequestModel,
     AutoAssignmentRequestModel,
-    AnnotatedObjectIdStr as ObjectIdStr,        # <--- MODIFICATO QUI
-    AnnotatedSerialNumberStr as SerialNumberStr, # <--- MODIFICATO QUI
+    AnnotatedObjectIdStr as ObjectIdStr,        
+    AnnotatedSerialNumberStr as SerialNumberStr,
     EvaluationItem
 )
 class TestReviewHandlers(unittest.TestCase):
