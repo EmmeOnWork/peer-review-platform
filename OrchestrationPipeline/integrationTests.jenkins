@@ -4,10 +4,10 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     def BUILD_PATH = "Tests/integration_tests"
     def K8S_PATH = "Tests/integration_tests/k8s/staging" 
     def cleanupExecuted = false
+    def imageExists = false 
 
     try {
         // Controlla se l'immagine esiste già nel registry
-        def imageExists = false
         try {
             docker.withRegistry("", env.DOCKER_CREDENTIALS_ID) {
                 sh "docker manifest inspect ${IMAGE_NAME}"
@@ -16,17 +16,16 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
             }
         } catch (Exception e) {
             echo "Immagine ${IMAGE_NAME} non trovata nel registry, procedo con la build."
-            imageExists = false
         }
 
         // Build solo se l'immagine non esiste
         if (!imageExists) {
             echo "Build dell'immagine Docker per i test di integrazione..."
-            
+
             if (!fileExists(BUILD_PATH)) {
                 error "La directory ${BUILD_PATH} non esiste. Pipeline interrotta."
             }
-            
+
             if (!fileExists("${BUILD_PATH}/Dockerfile")) {
                 error "Dockerfile non trovato in ${BUILD_PATH}. Pipeline interrotta."
             }
@@ -39,6 +38,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
                     echo "Push completato per ${IMAGE_NAME}"
                 }
             }
+
             echo "Immagine Docker per test di integrazione preparata con successo."
         } else {
             echo "Utilizzo l'immagine esistente nel registry: ${IMAGE_NAME}"
@@ -54,7 +54,6 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         echo "Attendo completamento del job 'integration-tests' (controllo solo i pod)..."
         timeout(time: 3, unit: 'MINUTES') {
             waitUntil {
-                // Recupera tutti i pod associati al job
                 def podPhases = sh(
                     script: "microk8s kubectl get pods -n ${NAMESPACE} -l job-name=integration-tests -o jsonpath='{.items[*].status.phase}' || echo ''",
                     returnStdout: true
@@ -62,17 +61,16 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
 
                 echo "Stati pod integration-tests: ${podPhases}"
 
-                // Se almeno un pod è Succeeded, il test è passato
                 if (podPhases.any { it == "Succeeded" }) {
                     return true
                 }
-                // Se tutti i pod sono Failed, il test è fallito
+
                 if (podPhases.every { it == "Failed" } && podPhases.size() > 0) {
                     echo "Log del job integration-tests:"
                     sh "microk8s kubectl logs job/integration-tests -n ${NAMESPACE} || true"
                     error("Job 'integration-tests' fallito.")
                 }
-                // Altrimenti attendi ancora
+
                 return false
             }
         }
@@ -84,7 +82,6 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         echo "Errore durante l'esecuzione: ${e.message}"
         echo "Pulizia del namespace '${NAMESPACE}'"
         sh "microk8s kubectl delete namespace ${NAMESPACE} --wait=true || true"
-        // Rimuovi solo se è stata buildada in questa sessione
         if (!imageExists) {
             sh "docker rmi ${IMAGE_NAME} || true"
         }
@@ -94,11 +91,9 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         if (!cleanupExecuted) {
             echo "Pulizia finale del job 'integration-tests' nel namespace '${NAMESPACE}'..."
             sh "microk8s kubectl delete job integration-tests -n ${NAMESPACE} --ignore-not-found=true || true"
-            // Rimuovi solo se è stata buildada in questa sessione
             if (!imageExists) {
                 sh "docker rmi ${IMAGE_NAME} || true"
             }
         }
     }
-
 }
