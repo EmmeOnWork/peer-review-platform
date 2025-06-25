@@ -37,17 +37,6 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
                     }
                 }
             }
-            if (fileExists('Tests')) {
-                def testsDirs = sh(script: "ls -1 Tests 2>/dev/null || true", returnStdout: true).trim()
-                if (testsDirs) {
-                    testsDirs.split('\n').each { svc ->
-                        // Escludi performance_test
-                        if (!svc.contains('@tmp') && svc != "performance_test") {
-                            dirs << "Tests/${svc}"
-                        }
-                    }
-                }
-            }
             return dirs
         }
         // Funzione per ottenere i file yaml di una directory k8s usando solo step pipeline
