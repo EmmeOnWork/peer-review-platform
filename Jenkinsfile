@@ -38,30 +38,14 @@ pipeline {
             }
         }
 
-        // Questo stage controlla il messaggio dell'ultimo commit e, se trova la direttiva,
-        // termina la pipeline con successo, evitando esecuzioni inutili.
-        stage('Verifica [skip ci]') {
-            steps {
-                script {
-                    // Recupera il messaggio dell'ultimo commit
-                    def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
-                    
-                    // Controlla se il messaggio contiene [skip ci] o [ci skip]
-                    if (commitMessage.contains('[skip ci]') || commitMessage.contains('[ci skip]')) {
-                        echo "Commit message contiene una direttiva per saltare la CI: la pipeline verrà terminata."
-                        // Imposta il risultato della build a SUCCESS e interrompe l'esecuzione degli stage successivi
-                        currentBuild.result = 'SUCCESS' 
-                        return // Esce dallo script e dallo stage
-                    }
-                    
-                    echo "Nessuna direttiva [skip ci] trovata. La pipeline prosegue normalmente."
-                }
-            }
-        }
+        // Lo stage 'Verifica [skip ci]' è stato rimosso e la sua logica integrata qui sotto.
         
         stage('Orchestrator') {
             steps {
                 script {
+                    // Lista vuota da usare in caso di skip
+                    def stepsJump = []
+                    
                     def stepsFeature = [
                         //CI-Feature 
                         "setupBot.jenkins", //setup bot per gestione git automatizzato con Jenkins
@@ -95,33 +79,48 @@ pipeline {
                         "generatePackageDiagram.jenkins" //Genera il diagramma dei pacchetti del progetto (es. con PlantUML)
                     ]
 
-                    if (!(env.BRANCH_NAME in ["develop", "origin/develop", "main", "origin/main", "master", "origin/master"])) {
-                        stepsFeature.each { fileName ->
+                    // *** INIZIO LOGICA DI SKIP INTEGRATA ***
+
+                    def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    def stepsToExecute // Variabile che conterrà la lista di step da eseguire
+                    
+                    if (commitMessage.contains('[skip ci]') || commitMessage.contains('[ci skip]')) {
+                        echo "Direttiva [skip ci] trovata. Verranno saltati tutti gli step di orchestrazione."
+                        stepsToExecute = stepsJump // Assegna la lista vuota
+                    } else {
+                        echo "Nessuna direttiva di skip. Esecuzione normale in base al branch."
+                        // Logica esistente per la selezione degli step in base al branch
+                        if (!(env.BRANCH_NAME in ["develop", "origin/develop", "main", "origin/main", "master", "origin/master"])) {
+                            stepsToExecute = stepsFeature
+                        } else if (env.BRANCH_NAME in ["develop", "origin/develop"]) {
+                            stepsToExecute = stepsDevelop
+                        } else if (env.BRANCH_NAME in ["main", "origin/main", "master", "origin/master"]) {
+                            stepsToExecute = stepsMaster
+                        } else {
+                            stepsToExecute = [] // Assicurati che sia vuota se nessuna condizione corrisponde
+                        }
+                    }
+
+                    // *** FINE LOGICA DI SKIP INTEGRATA ***
+
+                    // Esegue la lista di step che è stata selezionata.
+                    // Se è stata selezionata 'stepsJump', questo loop non farà nulla.
+                    if (stepsToExecute) { // Controlla che la lista non sia null
+                        stepsToExecute.each { fileName ->
                             def filePath = "${ORCHESTRATION_DIR}/${fileName}"
-                            echo "Caricando ed eseguendo SOLO SU FEATURE: ${filePath}"
+                            echo "Caricando ed eseguendo: ${filePath}"
                             load filePath
                         }
-                    } else if (env.BRANCH_NAME in ["develop", "origin/develop"]) {
-                        stepsDevelop.each { fileName ->
-                            def filePath = "${ORCHESTRATION_DIR}/${fileName}"
-                            echo "Caricando ed eseguendo SOLO SU develop: ${filePath}"
-                            load filePath
-                        }
-                    } else if (env.BRANCH_NAME in ["main", "origin/main", "master", "origin/master"]) {
-                        stepsMaster.each { fileName ->
-                            def filePath = "${ORCHESTRATION_DIR}/${fileName}"
-                            echo "Caricando ed eseguendo SOLO SU master: ${filePath}"
-                            load filePath
-                        }
+                    }
+
+                    if (!stepsToExecute || stepsToExecute.isEmpty()) {
+                        echo "Nessuno step di orchestrazione eseguito."
                     }
                 }
             }
         }
     }
 
-    // NUOVO: Il blocco 'post' ora funzionerà come previsto. Se la pipeline fallisce durante
-    // lo stage 'Orchestrator', i file del workspace saranno ancora presenti,
-    // permettendo al comando 'load' di trovare e caricare lo script di notifica.
     post {
         failure {
             script {
