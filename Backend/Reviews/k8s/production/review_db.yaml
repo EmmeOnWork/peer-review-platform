@@ -1,0 +1,81 @@
+# review_mongodb_k8s.yaml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: review-mongodb-secret # Nome standard per il Secret
+  labels:
+    app: review-mongo # Etichetta standard per il componente MongoDB
+# type e data sono direttamente sotto metadata per i Secret, non sotto spec
+type: Opaque
+data:
+    mongo-root-username: REDACTED
+    mongo-root-password: REDACTED
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: review-mongodb-statefulset # Nome standard per lo StatefulSet
+  labels:
+    app: review-mongo # Etichetta standard
+spec:
+  serviceName: "review-mongodb-headless-service" # Nome del Service Headless associato
+  replicas: 1
+  selector:
+    matchLabels:
+      app: review-mongo # Seleziona i Pod con questa etichetta
+  template:
+    metadata:
+      labels:
+        app: review-mongo # Etichetta per i Pod
+    spec:
+      containers:
+        - name: mongo-container # Nome più descrittivo del container
+          image: mongo:4.4
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: review-mongodb-secret
+                  key: mongo-root-username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: review-mongodb-secret
+                  key: mongo-root-password
+          resources:
+            requests:
+              cpu: "150m"
+              memory: "768Mi"
+            limits:
+              cpu: "300m"
+              memory: "1229Mi"
+          volumeMounts:
+            - name: mongo-persistent-storage # Nome più descrittivo e coerente
+              mountPath: /data/db
+
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-persistent-storage # Deve corrispondere a volumeMounts.name
+      spec:
+        accessModes: [ "ReadWriteOnce" ] # Modalità di accesso standard per DB
+        resources:
+          requests:
+            storage: 3Gi # Dimensione dello storage persistente
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: review-mongodb-headless-service # Nome standard per il Service Headless
+  labels:
+    app: review-mongo # Etichetta standard
+spec:
+  clusterIP: None # Definisce questo come un Service Headless
+  selector:
+    app: review-mongo # Seleziona i Pod dello StatefulSet
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017

@@ -1,0 +1,639 @@
+openapi: 3.0.3
+info:
+  title: Peer Review Service API
+  description: API for assigning and submitting peer reviews for student assignments.
+  version: 1.0.1 # Versione incrementata per riflettere le modifiche
+
+servers:
+  # Se il servizio è esposto tramite un ingress o un API gateway, l'URL potrebbe essere HTTPS
+  # Per ora, mantengo l'URL fornito, ma ricorda che per i Bearer token HTTPS è raccomandato.
+  - url: http://review-app-service:5003
+    description: Review service endpoint
+
+# Global security definition - applied to all operations unless overridden
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      operationId: handlers.review.health_check
+      summary: Health check endpoint
+      description: Check the health of the service.
+      security: [] # Aggiungi questa riga per disabilitare la sicurezza per questo endpoint
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string   
+                    
+  /reviews/assign/manual:
+    post:
+      operationId: handlers.review.manually_assign_peer_reviews 
+      summary: Manually assign peer reviews to students
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualAssignmentRequest'
+      responses:
+        '200':
+          description: Returns the created peer review assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PeerReviewAssignmentWithDetails' # Aggiornato per risposta arricchita
+                maxItems: 100
+        '400':
+          description: Invalid request (e.g. less than 3 assignments, invalid IDs)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Referenced entity not found (e.g., assignmentId, submissionId)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable (e.g., external service call failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reviews/assign/auto:
+    post:
+      operationId: handlers.review.auto_assign_peer_reviews # <<< OPERATION ID CORRETTO
+      summary: Automatically assign peer reviews to students
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutoAssignmentRequest'
+      responses:
+        '200':
+          description: Returns the created peer review assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PeerReviewAssignmentWithDetails' # Aggiornato per risposta arricchita
+                maxItems: 100
+        '400':
+          description: Invalid request (e.g. not enough students or submissions)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Referenced entity not found (e.g., assignmentId)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable (e.g., external service call failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reviews/student/{studentSerialNumber}:
+    get:
+      operationId: handlers.review.list_student_peer_reviews # <<< OPERATION ID CORRETTO
+      summary: List peer reviews assigned to a student (as reviewer)
+      parameters:
+        - name: studentSerialNumber
+          in: path
+          required: true
+          description: The serial number of the student whose assigned reviews are to be listed.
+          schema:
+            $ref: '#/components/schemas/serialNumber'
+      responses:
+        '200':
+          description: List of assigned peer reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PeerReviewAssignmentWithDetails' # Aggiornato per risposta arricchita
+                maxItems: 100
+        '400':
+          description: Invalid student serial number format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (e.g., student trying to access another student's reviews)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Student (reviewer) not found in the authentication system
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable (e.g., Auth service call failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reviews/{reviewId}:
+    put:
+      operationId: handlers.review.submit_peer_review # <<< OPERATION ID CORRETTO
+      summary: Submit a completed peer review
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          description: The ID of the peer review to submit.
+          schema:
+            $ref: '#/components/schemas/ObjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewSubmission'
+      responses:
+        '200':
+          description: Review submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeerReviewResponseWithDetails' # Aggiornato per risposta arricchita
+        '400':
+          description: Invalid submission data or review already submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (e.g., not the assigned reviewer)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Review not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable (e.g., Auth service call failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      operationId: handlers.review.get_peer_review_by_id # <<< OPERATION ID CORRETTO
+      summary: Get a single peer review by ID
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          description: The ID of the peer review to retrieve.
+          schema:
+            $ref: '#/components/schemas/ObjectId'
+      responses:
+        '200':
+          description: Peer review details
+          content:
+            application/json:
+              schema:
+                # La risposta può essere PeerReviewAssignmentWithDetails o PeerReviewResponseWithDetails
+                # a seconda se la review è stata sottomessa. Usare oneOf per specificarlo.
+                # oneOf:
+                #   - $ref: '#/components/schemas/PeerReviewResponseWithDetails'
+                #   - $ref: '#/components/schemas/PeerReviewAssignmentWithDetails'
+                
+                # With this:
+                anyOf:
+                  - $ref: '#/components/schemas/PeerReviewResponseWithDetails'
+                  - $ref: '#/components/schemas/PeerReviewAssignmentWithDetails'
+        '400':
+          description: Invalid review ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (user does not have permission to view this review)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Review not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable (e.g., external service call failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reviews/assignment/{assignmentId}:
+    get:
+      operationId: handlers.review.get_assignment_reviews # <<< OPERATION ID CORRETTO
+      summary: Get all reviews for an assignment (teacher only)
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          description: The ID of the assignment for which to retrieve all reviews.
+          schema:
+            $ref: '#/components/schemas/ObjectId'
+      responses:
+        '200':
+          description: List of peer reviews for the assignment
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  # Ogni item può essere PeerReviewAssignmentWithDetails o PeerReviewResponseWithDetails
+                  oneOf:
+                    - $ref: '#/components/schemas/PeerReviewResponseWithDetails'
+                    - $ref: '#/components/schemas/PeerReviewAssignmentWithDetails'
+                maxItems: 200 # Aumentato un po', ma considera la paginazione per liste lunghe
+        '400':
+          description: Invalid assignment ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (e.g., not a teacher or not the assignment owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Assignment not found (verified via Assignment Service)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable (e.g., external service call failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-bearerInfoFunc: handlers.auth_utils.decode_token
+      description: "Standard JWT Bearer token. Example: \"Bearer {token}\""
+      # x-bearerInfoFunc: handlers.auth_utils.decode_token # Se Connexion lo usa per validazione token
+
+  schemas:
+    ObjectId:
+      type: string
+      #pattern: '^[0-9a-fA-F]{24}$'
+      description: MongoDB ObjectId (24-character hex string).
+      example: '507f1f77bcf86cd799439011'
+
+    serialNumber:
+      type: string
+      #pattern: '^\d{10}$'
+      description: Student or professor serial number (10 digits).
+      example: '1234567890'
+
+    ManualAssignmentRequest:
+      type: object
+      required:
+        - assignmentId
+        - manualAssignments
+      properties:
+        assignmentId:
+          $ref: '#/components/schemas/ObjectId'
+        manualAssignments:
+          type: array
+          minItems: 1 # Modificato da 3 a 1; la logica di business può imporre > N
+          maxItems: 50
+          description: List of manual assignments. Business logic might require more than 1.
+          items:
+            $ref: '#/components/schemas/ManualAssignmentItem' # Rinominato per chiarezza
+      additionalProperties: false
+
+    ManualAssignmentItem: # Schema per gli item dentro ManualAssignmentRequest
+      type: object
+      required:
+        - reviewerserialNumber
+        - submissionId
+        # - authorSerialNumber # OPZIONALE: Se il client DEVE fornire l'autore
+      properties:
+        reviewerserialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        submissionId:
+          $ref: '#/components/schemas/ObjectId'
+        # authorSerialNumber: # Se il client lo fornisce
+        #   $ref: '#/components/schemas/serialNumber'
+        #   description: "Serial number of the author of the submission (if known by client)."
+      additionalProperties: false
+
+    AutoAssignmentRequest:
+      type: object
+      required:
+        - assignmentId
+        - minReviews
+      properties:
+        assignmentId:
+          $ref: '#/components/schemas/ObjectId'
+        minReviews:
+          type: integer
+          minimum: 1 # Modificato da 3 a 1; la logica di business può imporre > N
+          maximum: 10
+          description: Minimum number of peer reviews per submission. Business logic might require more.
+      additionalProperties: false
+
+    ReviewSubmission:
+      type: object
+      required:
+        - evaluation
+      properties:
+        evaluation:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationItem'
+          minItems: 1
+          maxItems: 20
+      additionalProperties: false
+
+    EvaluationItem:
+      type: object
+      required:
+        - criterion
+        - score
+      properties:
+        criterion:
+          type: string
+          minLength: 1
+          maxLength: 255
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100 # Assumendo un massimo
+        feedback:
+          type: string
+          maxLength: 1000
+          nullable: true # Permette null o stringa
+      additionalProperties: false
+
+    # Schema base per i dati principali di una review (senza dettagli nome/cognome)
+    PeerReviewCoreData:
+      type: object
+      properties:
+        reviewId: # Alias per _id nel DB
+          $ref: '#/components/schemas/ObjectId'
+          description: Unique ID of the peer review.
+        submissionId:
+          $ref: '#/components/schemas/ObjectId'
+        assignmentId:
+          $ref: '#/components/schemas/ObjectId'
+        reviewerserialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        authorSerialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+      required: # Campi che ci si aspetta sempre, anche se nullabili se non popolati subito
+        - reviewId
+        - submissionId
+        - assignmentId
+        - reviewerserialNumber
+        - authorSerialNumber
+      additionalProperties: false
+
+    # Schema per una assegnazione di review arricchita con dettagli utente
+    PeerReviewAssignmentWithDetails:
+      type: object
+      properties:
+        reviewId:
+          $ref: '#/components/schemas/ObjectId'
+        submissionId:
+          type: string
+        assignmentId:
+          $ref: '#/components/schemas/ObjectId'
+        reviewerserialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        reviewerName:
+          type: string
+          nullable: true
+        reviewerSurname:
+          type: string
+          nullable: true
+        authorSerialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        authorName:
+          type: string
+          nullable: true
+        authorSurname:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - reviewId
+        - submissionId
+        - assignmentId
+        - reviewerserialNumber
+        - authorSerialNumber
+      additionalProperties: false
+
+    # Schema per una review completata e arricchita
+    PeerReviewResponseWithDetails:
+      type: object
+      properties:
+        reviewId:
+          $ref: '#/components/schemas/ObjectId'
+        submissionId:
+          type: string
+        assignmentId:
+          $ref: '#/components/schemas/ObjectId'
+        reviewerserialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        reviewerName:
+          type: string
+          nullable: true
+        reviewerSurname:
+          type: string
+          nullable: true
+        authorSerialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        authorName:
+          type: string
+          nullable: true
+        authorSurname:
+          type: string
+          nullable: true
+        evaluation:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationItem'
+          maxItems: 20
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Date and time when the review was submitted.
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - reviewId
+        - submissionId
+        - assignmentId
+        - reviewerserialNumber
+        - authorSerialNumber
+      additionalProperties: false
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: A human-readable description of the error.
+        code: # Potrebbe essere omesso e basarsi solo sullo status HTTP
+          type: string
+          description: An optional application-specific error code.
+          nullable: true
+        details: # Per errori di validazione più specifici
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Optional additional details about the error.
+      additionalProperties: false

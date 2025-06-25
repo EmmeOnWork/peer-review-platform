@@ -79,7 +79,6 @@
       </div>
       
       <!-- Peer Review Section (solo per teacher) -->
-      <!-- Rimuovere completamente questa sezione:
       <div class="card" v-if="userRole === 'teacher'">
         <h3><i class="fas fa-users"></i> Peer Review</h3>
         <div class="review-actions">
@@ -93,7 +92,6 @@
           </button>
         </div>
       </div>
-      -->
       
       <!-- Modal per Assegnazione Automatica -->
       <div v-if="showAutoModal" class="modal-overlay" @click="closeModals">
@@ -181,8 +179,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
-// Rimuovere questa riga:
-// import reviewService from '@/services/reviewService';
+import reviewService from '@/services/reviewService';
 
 export default {
   name: 'SubmissionDetails',
@@ -196,16 +193,25 @@ export default {
     const error = ref(null);
     
     // User role
-    // Rimuovere queste variabili:
-    // const userRole = ref(localStorage.getItem('userRole'));
-    // const showAutoModal = ref(false);
-    // const showManualModal = ref(false);
-    // const autoAssignLoading = ref(false);
-    // const manualAssignLoading = ref(false);
-    // const studentsLoading = ref(false);
-    // const autoAssignData = ref({ minReviews: 2 });
-    // const manualAssignData = ref({ selectedStudents: [] });
-    // const availableStudents = ref([]);
+    const userRole = ref(localStorage.getItem('userRole'));
+    
+    // Modal states
+    const showAutoModal = ref(false);
+    const showManualModal = ref(false);
+    const autoAssignLoading = ref(false);
+    const manualAssignLoading = ref(false);
+    const studentsLoading = ref(false);
+    
+    // Data for assignments
+    const autoAssignData = ref({
+      minReviews: 2
+    });
+    
+    const manualAssignData = ref({
+      selectedStudents: []
+    });
+    
+    const availableStudents = ref([]);
     
     const getAuthHeaders = () => {
       const token = localStorage.getItem('userToken');
@@ -287,7 +293,87 @@ export default {
       }
     };
     
+    // Modal functions
+    const openAutoAssignModal = () => {
+      showAutoModal.value = true;
+    };
     
+    const openManualAssignModal = async () => {
+      showManualModal.value = true;
+      await fetchAvailableStudents();
+    };
+    
+    const closeModals = () => {
+      showAutoModal.value = false;
+      showManualModal.value = false;
+      manualAssignData.value.selectedStudents = [];
+    };
+    
+    // Fetch available students (excluding the author)
+    const fetchAvailableStudents = async () => {
+      if (!assignmentId.value) {
+        console.error('Assignment ID not available');
+        alert('ID Assignment non disponibile');
+        return;
+      }
+      
+      studentsLoading.value = true;
+      try {
+        const students = await reviewService.getAssignmentStudents(assignmentId.value);
+        // Exclude the submission author from available reviewers
+        availableStudents.value = students.filter(student => 
+          student.serialNumber !== submission.value.studentSerialNumber
+        );
+      } catch (err) {
+        console.error('Error fetching students:', err);
+        alert('Errore nel caricamento degli studenti');
+      } finally {
+        studentsLoading.value = false;
+      }
+    };
+    
+    // Submit auto assignment
+    const submitAutoAssign = async () => {
+      autoAssignLoading.value = true;
+      try {
+        const response = await reviewService.assignAutoReview(
+          assignmentId.value,
+          autoAssignData.value.minReviews
+        );
+        
+        alert(`Assegnazione automatica completata! Create ${response.length} review.`);
+        closeModals();
+      } catch (error) {
+        console.error('Error in auto assignment:', error);
+        alert('Errore nell\'assegnazione automatica');
+      } finally {
+        autoAssignLoading.value = false;
+      }
+    };
+    
+    // Submit manual assignment
+    const submitManualAssign = async () => {
+      manualAssignLoading.value = true;
+      try {
+        const manualAssignments = manualAssignData.value.selectedStudents.map(studentSerial => ({
+          submissionId: submissionId.value,
+          reviewerserialNumber: studentSerial  // Changed from reviewerSerialNumber to reviewerserialNumber
+        }));
+        
+        const response = await reviewService.assignManualReview(
+          assignmentId.value,
+          manualAssignments
+        );
+        
+        alert(`Assegnazione manuale completata! Create ${response.length} review.`);
+        closeModals();
+      } catch (error) {
+        console.error('Error in manual assignment:', error);
+        alert('Errore nell\'assegnazione manuale');
+      } finally {
+        manualAssignLoading.value = false;
+      }
+    };
     
     const goBack = () => router.go(-1);
     
@@ -295,7 +381,11 @@ export default {
     
     return {
       submission, loading, error, formatDate, formatTime,
-      getFileName, getFileIcon, downloadAttachment, goBack, fetchSubmissionDetails
+      getFileName, getFileIcon, downloadAttachment, goBack, fetchSubmissionDetails,
+      userRole, showAutoModal, showManualModal, autoAssignLoading, manualAssignLoading,
+      studentsLoading, autoAssignData, manualAssignData, availableStudents,
+      openAutoAssignModal, openManualAssignModal, closeModals,
+      submitAutoAssign, submitManualAssign
     };
   }
 };
@@ -704,28 +794,4 @@ export default {
     flex-direction: column;
   }
 }
-
-/* Rimuovere tutti questi stili:
-.review-actions { ... }
-.btn { ... }
-.btn-primary { ... }
-.btn-secondary { ... }
-.btn-cancel { ... }
-.btn:disabled { ... }
-.modal-overlay { ... }
-.modal { ... }
-.modal-header { ... }
-.modal-body { ... }
-.modal-footer { ... }
-.close-btn { ... }
-.input-group { ... }
-.form-control { ... }
-.students-list { ... }
-.student-item { ... }
-.student-checkbox { ... }
-.student-label { ... }
-.student-info { ... }
-.student-name { ... }
-.student-serial { ... }
-*/
 </style>

@@ -12,7 +12,7 @@ import urllib3
 AUTH_API_PATH = "/auth/"
 ASSIGNMENT_API_PATH = "/assignments/"
 SUBMISSION_API_PATH = "/submissions/"
-#REVIEW_API_PATH = "/reviews/"
+REVIEW_API_PATH = "/reviews/"
 
 TEST_PASSWORD = "password123"
 
@@ -181,20 +181,20 @@ class TeacherTasks(TaskSet):
                 else: response.failure("Create assignment OK but no ID in response")
             else: response.failure(f"Create assignment failed: {response.status_code} - {response.text}")
 
-    # @task(5)
-    # def auto_assign_peer_reviews(self):
-    #     headers = self.user.get_auth_headers()
-    #     if not headers: return
-    #     if not shared_state.assignment_ids: return
+    @task(5)
+    def auto_assign_peer_reviews(self):
+        headers = self.user.get_auth_headers()
+        if not headers: return
+        if not shared_state.assignment_ids: return
 
-    #     assignment_id_to_review = random.choice(shared_state.assignment_ids)
-    #     submissions_for_assignment = shared_state.submission_ids_for_review.get(assignment_id_to_review, [])
-    #     if len(submissions_for_assignment) < 4: return
+        assignment_id_to_review = random.choice(shared_state.assignment_ids)
+        submissions_for_assignment = shared_state.submission_ids_for_review.get(assignment_id_to_review, [])
+        if len(submissions_for_assignment) < 4: return
 
-    #     with self.user.client.post(f"{REVIEW_API_PATH}assign/auto", json={"assignmentId": assignment_id_to_review, "minReviews": 3}, headers=headers, name="/teacher/auto_assign_reviews", catch_response=True) as response:
-    #         if response.ok: response.success()
-    #         elif response.status_code in [400, 404]: response.success() # Non-critical failure
-    #         else: response.failure(f"Auto-assign reviews failed: {response.status_code} - {response.text}")
+        with self.user.client.post(f"{REVIEW_API_PATH}assign/auto", json={"assignmentId": assignment_id_to_review, "minReviews": 3}, headers=headers, name="/teacher/auto_assign_reviews", catch_response=True) as response:
+            if response.ok: response.success()
+            elif response.status_code in [400, 404]: response.success() # Non-critical failure
+            else: response.failure(f"Auto-assign reviews failed: {response.status_code} - {response.text}")
 
     @task(2)
     def get_own_profile(self):
@@ -239,48 +239,48 @@ class StudentTasks(TaskSet):
             elif response.status_code in [403, 404]: response.success()
             else: response.failure(f"Submit assignment failed: {response.status_code} - {response.text}")
 
-    # @task(5)
-    # def list_and_process_assigned_reviews(self):
-    #     headers = self.user.get_auth_headers()
-    #     if not headers or not self.user.serial_number: return
+    @task(5)
+    def list_and_process_assigned_reviews(self):
+        headers = self.user.get_auth_headers()
+        if not headers or not self.user.serial_number: return
 
-    #     # 1. Get list of assigned reviews
-    #     review_to_process_id = None
-    #     with self.user.client.get(f"{REVIEW_API_PATH}student/{self.user.serial_number}", headers=headers, name="/student/list_reviews", catch_response=True) as response:
-    #         if not response.ok:
-    #             response.failure(f"List student reviews failed: {response.status_code} - {response.text}")
-    #             return
+        # 1. Get list of assigned reviews
+        review_to_process_id = None
+        with self.user.client.get(f"{REVIEW_API_PATH}student/{self.user.serial_number}", headers=headers, name="/student/list_reviews", catch_response=True) as response:
+            if not response.ok:
+                response.failure(f"List student reviews failed: {response.status_code} - {response.text}")
+                return
             
-    #         assigned_reviews = response.json()
-    #         if isinstance(assigned_reviews, list) and assigned_reviews:
-    #             unsubmitted = [r for r in assigned_reviews if not r.get('submittedAt')]
-    #             if unsubmitted:
-    #                 review_to_process_id = random.choice(unsubmitted).get('reviewId')
-    #         response.success()
+            assigned_reviews = response.json()
+            if isinstance(assigned_reviews, list) and assigned_reviews:
+                unsubmitted = [r for r in assigned_reviews if not r.get('submittedAt')]
+                if unsubmitted:
+                    review_to_process_id = random.choice(unsubmitted).get('reviewId')
+            response.success()
         
-    #     if not review_to_process_id: return
+        if not review_to_process_id: return
 
-    #     # 2. Get specific review details to fetch the rubric
-    #     rubric = None
-    #     with self.user.client.get(f"{REVIEW_API_PATH}{review_to_process_id}", headers=headers, name="/student/get_specific_review", catch_response=True) as response:
-    #         if not response.ok:
-    #             response.failure(f"Get review {review_to_process_id} failed: {response.status_code}")
-    #             return
-    #         rubric = response.json().get("assignment", {}).get("rubric")
-    #         response.success()
+        # 2. Get specific review details to fetch the rubric
+        rubric = None
+        with self.user.client.get(f"{REVIEW_API_PATH}{review_to_process_id}", headers=headers, name="/student/get_specific_review", catch_response=True) as response:
+            if not response.ok:
+                response.failure(f"Get review {review_to_process_id} failed: {response.status_code}")
+                return
+            rubric = response.json().get("assignment", {}).get("rubric")
+            response.success()
 
-    #     if not rubric: return
+        if not rubric: return
 
-    #     # 3. Submit the review
-    #     evaluation_payload = []
-    #     for criterion in rubric:
-    #         max_score = criterion.get("maxScore", 10)
-    #         score = random.randint(1, max_score)
-    #         evaluation_payload.append({"criterion": criterion.get("criterion"), "score": score, "feedback": "Auto-generated feedback."})
+        # 3. Submit the review
+        evaluation_payload = []
+        for criterion in rubric:
+            max_score = criterion.get("maxScore", 10)
+            score = random.randint(1, max_score)
+            evaluation_payload.append({"criterion": criterion.get("criterion"), "score": score, "feedback": "Auto-generated feedback."})
         
-    #     with self.user.client.put(f"{REVIEW_API_PATH}{review_to_process_id}", json={"evaluation": evaluation_payload}, headers=headers, name="/student/submit_review", catch_response=True) as response:
-    #         if response.ok: response.success()
-    #         else: response.failure(f"Submit review {review_to_process_id} failed: {response.status_code}")
+        with self.user.client.put(f"{REVIEW_API_PATH}{review_to_process_id}", json={"evaluation": evaluation_payload}, headers=headers, name="/student/submit_review", catch_response=True) as response:
+            if response.ok: response.success()
+            else: response.failure(f"Submit review {review_to_process_id} failed: {response.status_code}")
 
     @task(2)
     def get_own_profile(self):

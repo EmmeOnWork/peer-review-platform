@@ -247,6 +247,15 @@ watch(() => props.assignment, (newVal) => {
   }
 }, { immediate: true, deep: true });
 
+const addCriterion = () => {
+  form.value.rubric.push({ criterion: '', maxScore: 0 });
+};
+
+const removeCriterion = (index) => {
+  if (form.value.rubric.length > 1) {
+    form.value.rubric.splice(index, 1);
+  }
+};
 async function handleSubmit() {
   errorMessage.value = '';
   successMessage.value = '';
@@ -683,7 +692,6 @@ textarea {
     width: 100%;
   }
 }
-</style>
 
 .info-message {
   color: #555; /* Or any other appropriate color */
@@ -692,3 +700,6 @@ textarea {
   text-align: center;
   font-style: italic;
 }
+
+
+</style>

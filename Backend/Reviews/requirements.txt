@@ -1,0 +1,10 @@
+connexion[swagger-ui,uvicorn]
+flask
+pymongo
+pydantic
+a2wsgi
+uvicorn
+PyJWT
+cryptography
+requests
+mongomock
