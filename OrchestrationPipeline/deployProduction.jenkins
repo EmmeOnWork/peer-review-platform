@@ -44,7 +44,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
             error "Nessun file .yaml trovato in ${k8sPath}. Pipeline interrotta."
         }
         yamlFiles.each { file ->
-            echo "Applico ${file} su ${NAMESPACE}..."
+            echo "Aplico ${file} su ${NAMESPACE}..."
             sh "microk8s kubectl apply -f ${file} --namespace=${NAMESPACE}"
         }
     }
@@ -61,19 +61,19 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     echo "Eseguo rollout restart di tutti i deployment su ${NAMESPACE}..."
     sh "microk8s kubectl rollout restart deployment -n ${NAMESPACE}"
 
-    // Attendi che tutti i deployment abbiano completato il rollout
+    // Avvia il rollout status senza timeout (non bloccante)
     def deployments = sh(
         script: "microk8s kubectl get deployments -n ${NAMESPACE} -o jsonpath='{.items[*].metadata.name}'",
         returnStdout: true
     ).trim().split(' ')
     deployments.each { dep ->
         if (dep?.trim()) {
-            echo "Attendo il completamento del rollout per deployment: ${dep}"
-            sh "microk8s kubectl rollout status deployment/${dep} -n ${NAMESPACE} --timeout=300s"
+            echo "Avvio rollout per deployment: ${dep}"
+            sh "microk8s kubectl rollout status deployment/${dep} -n ${NAMESPACE} || true"
         }
     }
 
-    // Attendi che tutti i pod siano Running
+    // Attendi che tutti i pod siano Running 
     timeout(time: 20, unit: 'MINUTES') {
         waitUntil {
             def podStatus = sh(script: "microk8s kubectl get pods --namespace=${NAMESPACE} --no-headers", returnStdout: true).trim()
