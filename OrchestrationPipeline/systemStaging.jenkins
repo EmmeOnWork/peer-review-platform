@@ -79,7 +79,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
             }
         }
 
-        timeout(time: 3, unit: 'MINUTES') {
+        timeout(time: 5, unit: 'MINUTES') {
             waitUntil {
                 // Prendi tutti i pod tranne quelli dei job di integrazione
                 def podStatus = sh(
