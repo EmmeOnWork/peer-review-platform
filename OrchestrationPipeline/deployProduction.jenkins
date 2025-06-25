@@ -69,7 +69,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     deployments.each { dep ->
         if (dep?.trim()) {
             echo "Avvio rollout per deployment: ${dep}"
-            sh "microk8s kubectl rollout status deployment/${dep} -n ${NAMESPACE} || true"
+            sh "microk8s kubectl rollout status deployment/${dep} -n ${NAMESPACE} || true" //senza timeout perche verra eseguito waitUntil
         }
     }
 
