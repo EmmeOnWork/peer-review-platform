@@ -37,8 +37,6 @@ pipeline {
                 echo "Checkout completato. I file sono ora nel workspace."
             }
         }
-
-        // Lo stage 'Verifica [skip ci]' è stato rimosso e la sua logica integrata qui sotto.
         
         stage('Orchestrator') {
             steps {
