@@ -8,3 +8,4 @@ PyJWT
 cryptography
 requests
 mongomock
+pytest
