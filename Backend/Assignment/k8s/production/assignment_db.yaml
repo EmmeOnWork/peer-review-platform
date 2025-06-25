@@ -1,0 +1,82 @@
+# assignment_mongodb_k8s.yaml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: assignment-mongodb-secret # Nome standard per il Secret
+  labels:
+    app: assignment-mongo # Etichetta standard per il componente MongoDB
+type: Opaque
+data:
+  mongo-root-username: REDACTED
+  mongo-root-password: REDACTED
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: assignment-mongodb-statefulset # Nome standard per lo StatefulSet
+  labels:
+    app: assignment-mongo # Etichetta standard
+spec:
+  serviceName: "assignment-mongodb-headless-service" # Nome del Service Headless associato
+  replicas: 1
+  selector:
+    matchLabels:
+      app: assignment-mongo # Seleziona i Pod con questa etichetta
+  template:
+    metadata:
+      labels:
+        app: assignment-mongo # Etichetta per i Pod
+    spec:
+      containers:
+        - name: mongo-container # Nome più descrittivo del container
+          image: mongo:6.0 # Specifica una versione precisa, buona pratica
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: assignment-mongodb-secret
+                  key: mongo-root-username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: assignment-mongodb-secret
+                  key: mongo-root-password
+          resources:
+            requests:
+              cpu: "150m"
+              memory: "768Mi"
+            limits:
+              cpu: "300m"
+              memory: "1.2Gi"
+          volumeMounts:
+            - name: mongo-persistent-storage # Nome più descrittivo e coerente
+              mountPath: /data/db
+
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-persistent-storage # Deve corrispondere a volumeMounts.name
+      spec:
+        accessModes: [ "ReadWriteOnce" ] # Modalità di accesso standard per DB
+        resources:
+          requests:
+            storage: 3Gi # Dimensione dello storage persistente
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: assignment-mongodb-headless-service # Nome standard per il Service Headless
+  labels:
+    app: assignment-mongo # Etichetta standard
+spec:
+  clusterIP: None # Definisce questo come un Service Headless
+  selector:
+    app: assignment-mongo # Seleziona i Pod dello StatefulSet
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017

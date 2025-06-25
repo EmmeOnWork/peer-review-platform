@@ -9,8 +9,8 @@
             <path d="M12 12L13.09 18.26L20 19L13.09 19.74L12 26L10.91 19.74L4 19L10.91 18.26L12 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        <h1 class="form-title">Create Account</h1>
-        <p class="form-subtitle">Join our educational platform</p>
+        <h1 class="form-title">Crea Account</h1>
+        <p class="form-subtitle">Unisciti alla nostra piattaforma educativa</p>
       </div>
     </div>
 
@@ -22,14 +22,14 @@
              <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
              <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
            </svg>
-           First Name
+           Nome
          </label>
          <input
            type="text"
            id="name"
            v-model="name"
            class="form-input"
-           placeholder="Enter your first name"
+           placeholder="Inserisci il tuo nome"
            required
          />
        </div>
@@ -40,14 +40,14 @@
              <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
              <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
            </svg>
-           Last Name
+           Cognome
          </label>
          <input
            type="text"
            id="surname"
            v-model="surname"
            class="form-input"
-           placeholder="Enter your last name"
+           placeholder="Inserisci il tuo cognome"
            required
          />
        </div>
@@ -65,7 +65,7 @@
            id="email"
            v-model="email"
            class="form-input"
-           placeholder="Enter your email"
+           placeholder="Inserisci la tua email"
            required
          />
        </div>
@@ -76,14 +76,14 @@
              <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
              <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
            </svg>
-           Fiscal Code
+           Codice Fiscale
          </label>
          <input
            type="text"
            id="fiscalCode"
            v-model="fiscalCode"
            class="form-input"
-           placeholder="Enter your fiscal code"
+           placeholder="Inserisci il tuo codice fiscale"
            required
          />
        </div>
@@ -96,7 +96,7 @@
              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"/>
              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
            </svg>
-           Birth Date
+           Data di Nascita
          </label>
          <input
            type="date"
@@ -113,14 +113,14 @@
              <path d="M21 10C21 17 12 23 12 23S3 17 3 10C3 7.61305 3.94821 5.32387 5.63604 3.63604C7.32387 1.94821 9.61305 1 12 1C14.3869 1 16.6761 1.94821 18.3639 3.63604C20.0518 5.32387 21 7.61305 21 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
              <circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
            </svg>
-           Residence
+           Residenza
          </label>
          <input
            type="text"
            id="residence"
            v-model="residence"
            class="form-input"
-           placeholder="Enter your residence"
+           placeholder="Inserisci la tua residenza"
            required
          />
        </div>
@@ -139,7 +139,7 @@
           id="password"
           v-model="password"
           class="form-input"
-          placeholder="Create a secure password"
+          placeholder="Crea una password sicura"
           required
         />
       </div>
@@ -151,14 +151,14 @@
             <circle cx="12" cy="16" r="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M7 11V7C7 5.67392 7.52678 4.40215 8.46447 3.46447C9.40215 2.52678 10.6739 2 12 2C13.3261 2 14.5979 2.52678 15.5355 3.46447C16.4732 4.40215 17 5.67392 17 7V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          Confirm Password
+          Conferma Password
         </label>
         <input
           type="password"
           id="confirmPassword"
           v-model="confirmPassword"
           class="form-input"
-          placeholder="Confirm your password"
+          placeholder="Conferma la tua password"
           required
         />
       </div>
@@ -170,12 +170,12 @@
             <circle cx="8.5" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <polyline points="17,11 19,13 23,9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          Role
+          Ruolo
         </label>
         <select id="role" v-model="role" class="form-select" required>
-          <option value="">Select your role</option>
-          <option value="student">Student</option>
-          <option value="teacher">Teacher</option>
+          <option value="">Seleziona il tuo ruolo</option>
+          <option value="student">Studente</option>
+          <option value="teacher">Docente</option>
         </select>
       </div>
 
@@ -193,15 +193,15 @@
           <path d="M22 12H16L14 15H10L8 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M5.45 5.11L2 12V18C2 18.5304 2.21071 19.0391 2.58579 19.4142C2.96086 19.7893 3.46957 20 4 20H20C20.5304 20 21.0391 19.7893 21.4142 19.4142C21.7893 19.0391 22 18.5304 22 18V12L18.55 5.11C18.3844 4.77679 18.1292 4.49637 17.813 4.30028C17.4967 4.10419 17.1321 4.0002 16.76 4H7.24C6.86792 4.0002 6.50326 4.10419 6.18704 4.30028C5.87083 4.49637 5.61558 4.77679 5.45 5.11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        Create Account
+        Crea Account
       </button>
     </form>
 
     <!-- Footer -->
     <div class="form-footer">
       <p class="login-link">
-        Already have an account? 
-        <router-link to="/login" class="login-link-btn">Sign in here</router-link>
+        Hai già un account? 
+        <router-link to="/login" class="login-link-btn">Accedi qui</router-link>
       </p>
     </div>
   </div>
@@ -231,7 +231,7 @@ async function register() {
   
   // Validate password match
   if (password.value !== confirmPassword.value) {
-    errorMessage.value = 'Passwords do not match';
+    errorMessage.value = 'Le password non corrispondono';
     return;
   }
 
@@ -256,14 +256,14 @@ async function register() {
     const data = await response.json();
 
     if (!response.ok) {
-      errorMessage.value = data.message || 'Registration error';
+      errorMessage.value = data.message || 'Errore durante la registrazione';
       return;
     }
 
     // Registration successful, redirect to login
     router.push('/login');
   } catch (error) {
-    errorMessage.value = 'Server connection error';
+    errorMessage.value = 'Errore di connessione al server';
     console.error('Registration error:', error);
   }
 }

@@ -46,7 +46,12 @@ const routes = [
   },
 
   // --- Rotte Docente ---
- 
+  {
+    path: '/teacher/assignments',
+    name: 'TeacherAssignments',
+    component: () => import('../views/teacher/TeacherAssignmentsPage.vue'),
+    meta: { requiresAuth: true, role: 'teacher' }
+  },
 
   // --- Rotte Studente ---
   {
@@ -55,10 +60,12 @@ const routes = [
     component: StudentDashboard,
     meta: { requiresAuth: true, role: 'student' }
   },
-
-
-  // Rotte per visualizzare le submissions degli studenti
-
+  {
+    path: '/student/assignments',
+    name: 'StudentAssignments',
+    component: () => import('../views/student/StudentAssignmentsPage.vue'),
+    meta: { requiresAuth: true, role: 'student' }
+  },
 
   // --- Rotta Profilo Utente ---
   {
@@ -67,7 +74,6 @@ const routes = [
     component: UserProfile,
     meta: { requiresAuth: true }
   },
-
 
   // --- Not Found ---
   {

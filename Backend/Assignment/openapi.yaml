@@ -1,0 +1,391 @@
+openapi: 3.0.3
+info:
+  title: Assignment Service API
+  version: 1.0.0
+
+servers:
+  - url: http://assignment-app-service:5001 
+
+security:
+  - BearerAuth: []
+
+paths:
+  /assignments:
+    post:
+      operationId: handlers.assignment.create_assignment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '406': { description: Not Acceptable }
+        '415': { description: Unsupported Media Type }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+  # ... existing code ...
+  /assignments/{assignmentId}/students:
+    get:
+      operationId: handlers.assignment.get_assignment_students
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: assignmentId
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            pattern: '^[a-zA-Z0-9]+$'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  description: Student serial numbers
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '406': { description: Not Acceptable }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+# ... existing code ...
+  /assignments/{assignmentId}:
+    get:
+      operationId: handlers.assignment.get_assignment_by_id
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: assignmentId
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            pattern: '^[a-zA-Z0-9]+$'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '404': { description: Not Found }
+        '406': { description: Not Acceptable }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+
+    put:
+      operationId: handlers.assignment.update_assignment
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: assignmentId
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            pattern: '^[a-zA-Z0-9]+$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResponse'
+        '400': { description: Bad Request }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '406': { description: Not Acceptable }
+        '415': { description: Unsupported Media Type }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+
+    delete:
+      operationId: handlers.assignment.delete_assignment
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: assignmentId
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            pattern: '^[a-zA-Z0-9]+$'
+      responses:
+        '204': { description: Deleted }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '406': { description: Not Acceptable }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+
+  /assignments/teacher/mine:
+    get:
+      operationId: handlers.assignment.get_by_teacher
+      security:
+        - BearerAuth: []
+      parameters: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssignmentResponse'
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '406': { description: Not Acceptable }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+
+  /assignments/student/mine:  # MODIFIED PATH
+    get:
+      operationId: handlers.assignment.get_by_student
+      security:
+        - BearerAuth: []
+      parameters: [] # REMOVED studentSerialNumber parameter
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items:
+                  $ref: '#/components/schemas/AssignmentStudentSpecificView'
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '406': { description: Not Acceptable }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+  /health:
+    get:
+      operationId: handlers.assignment.health_check
+      summary: Health check endpoint
+      description: Check the health of the service.
+      security: [] # Aggiungi questa riga per disabilitare la sicurezza per questo endpoint
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string 
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-bearerInfoFunc: handlers.utils.decode_token
+
+  schemas:
+    AssignmentRequest:
+      type: object
+      required: [title, description, deadline, rubric, students]
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        deadline:
+          type: string
+          format: date-time
+        rubric:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [criterion, maxScore]
+            properties:
+              criterion:
+                type: string
+                maxLength: 255
+              maxScore:
+                type: integer
+                format: int32
+                minimum: 0
+                maximum: 100
+        students:
+          type: array
+          maxItems: 100
+          items:
+            type: string
+            pattern: '^\d{10}$'
+            maxLength: 10
+        teacherSerialNumber:
+          type: string
+          pattern: '^\d{10}$'
+          maxLength: 10
+
+    AssignmentResponse:
+      type: object
+      required: 
+        - _id
+        - title
+        - description
+        - deadline
+        - rubric
+        - students
+        - teacherSerialNumber
+        - teacherName
+        - teacherSurname
+        - createdAt
+        - updatedAt
+      additionalProperties: false
+      properties:
+        _id:
+          type: string
+          maxLength: 64
+          pattern: '^[a-zA-Z0-9]+$'
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        deadline:
+          type: string
+          format: date-time
+        rubric:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [criterion, maxScore]
+            properties:
+              criterion:
+                type: string
+                maxLength: 255
+              maxScore:
+                type: integer
+                format: int32
+                minimum: 0
+                maximum: 100
+        students:
+          type: array
+          maxItems: 100
+          items:
+            type: string
+            pattern: '^\d{10}$'
+            maxLength: 10
+        teacherSerialNumber:
+          type: string
+          pattern: '^\d{10}$'
+          maxLength: 10
+        teacherName:
+          type: string
+          maxLength: 100
+        teacherSurname:
+          type: string
+          maxLength: 100
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AssignmentStudentSpecificView:
+      type: object
+      required:
+        - _id
+        - createdAt
+        - updatedAt
+        - title
+        - description
+        - deadline
+        - rubric
+        - teacherSerialNumber
+        - teacherName
+        - teacherSurname
+      additionalProperties: false
+      properties:
+        _id:
+          type: string
+          maxLength: 64
+          pattern: '^[a-zA-Z0-9]+$'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 1000
+        deadline:
+          type: string
+          format: date-time
+        rubric:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              criterion:
+                type: string
+                maxLength: 255
+              maxScore:
+                type: integer
+                format: int32
+                minimum: 0
+                maximum: 100
+        teacherSerialNumber:
+          type: string
+          pattern: '^\d{10}$'
+          maxLength: 10
+        teacherName:
+          type: string
+          maxLength: 100
+        teacherSurname:
+          type: string
+          maxLength: 100

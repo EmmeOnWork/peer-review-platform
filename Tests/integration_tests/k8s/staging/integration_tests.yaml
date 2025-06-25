@@ -12,5 +12,7 @@ spec:
         env:
         - name: AUTHENTICATION_SERVICE_URL
           value: "http://authentication-app-service:5000"
+        - name: ASSIGNMENT_SERVICE_URL
+          value: "http://assignment-app-service:5001"
 
       restartPolicy: Never

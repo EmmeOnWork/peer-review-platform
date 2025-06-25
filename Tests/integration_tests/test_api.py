@@ -8,6 +8,7 @@ import io
 
 # Base URLs
 AUTH_SERVICE_URL = os.getenv('AUTHENTICATION_SERVICE_URL', 'http://authentication-app-service:5000')
+ASSIGNMENT_SERVICE_URL = os.getenv('ASSIGNMENT_SERVICE_URL', 'http://assignment-app-service:5001')
 
 
 TEST_PASSWORD = "password123"
@@ -22,6 +23,9 @@ class TestIntegration:
     teacher_token = None
     teacher_serial_number = None
 
+    assignment_id = None
+    assignment_rubric = None
+
 
     # --- HEALTH CHECKS ---
     def test_00_auth_service_health(self):
@@ -35,7 +39,17 @@ class TestIntegration:
         except requests.exceptions.RequestException as e:
             pytest.fail(f"Auth service not available (FATAL for test suite): {e}")
 
-
+    def test_00b_assignment_service_health(self):
+        url = f"{ASSIGNMENT_SERVICE_URL}/health"
+        try:
+            response = requests.get(url, timeout=10)
+            assert response.status_code == 200, f"Assignment service health check failed: {response.status_code} - {response.text}"
+            health_data = response.json()
+            assert 'status' in health_data 
+            print(f"Assignment service health check: {health_data['status']}")
+        except requests.exceptions.RequestException as e:
+            pytest.fail(f"Assignment service not available (FATAL for test suite): {e}")
+            
     # --- REGISTRATION TESTS ---
     def test_01_teacher_registration(self):
         url = f"{AUTH_SERVICE_URL}/auth/register"
@@ -182,10 +196,45 @@ class TestIntegration:
         assert response.json()['user']['serialNumber'] == TestIntegration.student3_serial_number
         print(f"\nStudent3 Login Token (first 10): {TestIntegration.student3_token[:10]}...")
 
+    def test_09_teacher_create_assignment(self):
+        if not (TestIntegration.teacher_token and \
+                TestIntegration.student1_serial_number and \
+                TestIntegration.student2_serial_number and \
+                TestIntegration.student3_serial_number):
+            pytest.skip("Prerequisites for creating assignment not met (tokens/serials missing).")
 
+        url = f"{ASSIGNMENT_SERVICE_URL}/assignments"
+        headers = {'Authorization': f'Bearer {TestIntegration.teacher_token}'}
+        future_deadline = datetime.now(timezone.utc) + timedelta(days=1) 
+        deadline_str = future_deadline.isoformat() 
+        TestIntegration.assignment_rubric = [
+            {"criterion": "Completeness", "maxScore": 10},
+            {"criterion": "Quality", "maxScore": 10},
+            {"criterion": "Clarity", "maxScore": 10}
+        ]
+        assignment_data = {
+            "title": "Peer Review Integration Test Assignment",
+            "description": "This is an assignment for peer review integration testing.",
+            "deadline": deadline_str,
+            "rubric": TestIntegration.assignment_rubric,
+            "students": [
+                TestIntegration.student1_serial_number,
+                TestIntegration.student2_serial_number,
+                TestIntegration.student3_serial_number
+            ]
+        }
+        response = requests.post(url, json=assignment_data, headers=headers)
+        if response.status_code != 201:
+            print(f"Create Assignment Error Response: {response.text}")
+        assert response.status_code == 201, f"Create Assignment Failed: {response.text}"
+        
+        assignment_response_json = response.json()
+        TestIntegration.assignment_id = assignment_response_json.get('_id')
+        assert TestIntegration.assignment_id is not None, f"Assignment _id not found in response: {assignment_response_json}"
+        print(f"\nCreated Assignment ID: {TestIntegration.assignment_id}")
 
     # --- AUTH PROFILE AND LOGOUT ---
-    def test_09_student1_get_own_profile(self): 
+    def test_10_student1_get_own_profile(self): 
         if not (TestIntegration.student1_token and TestIntegration.student1_serial_number):
             pytest.skip("Student1 token or serial_number not available.")
 
@@ -198,7 +247,7 @@ class TestIntegration:
         assert profile.get('serialNumber') == TestIntegration.student1_serial_number
         print(f"Student1 Get Own Profile successful (serialNumber: {profile.get('serialNumber')}).")
 
-    def test_10_student1_update_own_profile(self): 
+    def test_11_student1_update_own_profile(self): 
         if not TestIntegration.student1_token: pytest.skip("Student1 token missing.")
         url = f"{AUTH_SERVICE_URL}/auth/users/me"
         headers = {'Authorization': f'Bearer {TestIntegration.student1_token}'}
@@ -208,7 +257,7 @@ class TestIntegration:
         assert response.json().get('residence') == update_data["residence"]
         print(f"\nStudent1 Update Own Profile successful.")
 
-    def test_11_teacher_get_all_students(self): 
+    def test_12_teacher_get_all_students(self): 
         if not TestIntegration.teacher_token: pytest.skip("Teacher token missing.")
         url = f"{AUTH_SERVICE_URL}/auth/users/students"
         headers = {'Authorization': f'Bearer {TestIntegration.teacher_token}'}
@@ -227,7 +276,7 @@ class TestIntegration:
         print(f"\nTeacher Get All Students successful, found {len(serials_in_list)} students.")
 
     # --- LOGOUT TESTS ---
-    def test_12_student1_logout(self): 
+    def test_13_student1_logout(self): 
         if not TestIntegration.student1_token: pytest.skip("Student1 token missing for logout.")
         url = f"{AUTH_SERVICE_URL}/auth/logout"
         headers = {'Authorization': f'Bearer {TestIntegration.student1_token}'}
@@ -239,7 +288,7 @@ class TestIntegration:
         TestIntegration.student1_token = None 
         print(f"\nStudent1 Logout successful.")
 
-    def test_13_student2_logout(self):
+    def test_14_student2_logout(self):
         if not TestIntegration.student2_token: pytest.skip("Student2 token missing for logout.")
         url = f"{AUTH_SERVICE_URL}/auth/logout"
         headers = {'Authorization': f'Bearer {TestIntegration.student2_token}'}
@@ -251,7 +300,7 @@ class TestIntegration:
         TestIntegration.student2_token = None
         print(f"Student2 Logout successful.")
 
-    def test_14_student3_logout(self):
+    def test_15_student3_logout(self):
         if not TestIntegration.student3_token: pytest.skip("Student3 token missing for logout.")
         url = f"{AUTH_SERVICE_URL}/auth/logout"
         headers = {'Authorization': f'Bearer {TestIntegration.student3_token}'}
@@ -263,7 +312,7 @@ class TestIntegration:
         TestIntegration.student3_token = None
         print(f"Student3 Logout successful.")
 
-    def test_15_teacher_logout(self):
+    def test_16_teacher_logout(self):
         if not TestIntegration.teacher_token: pytest.skip("Teacher token missing for logout.")
         url = f"{AUTH_SERVICE_URL}/auth/logout"
         headers = {'Authorization': f'Bearer {TestIntegration.teacher_token}'}
@@ -287,7 +336,21 @@ class TestIntegration:
             "student3": cls.student3_token
         }
         
+        teacher_token_for_assignment_deletion = current_tokens["teacher"] # Salva prima della potenziale cancellazione
 
+        if cls.assignment_id and teacher_token_for_assignment_deletion:
+            print(f"Attempting to delete assignment {cls.assignment_id} using teacher's original token.")
+            try:
+                headers = {'Authorization': f'Bearer {teacher_token_for_assignment_deletion}'}
+                response = requests.delete(f"{ASSIGNMENT_SERVICE_URL}/assignments/{cls.assignment_id}", headers=headers)
+                if response.status_code == 204: 
+                    print(f"Assignment {cls.assignment_id} deleted.")
+                else: 
+                    print(f"Failed to delete assignment {cls.assignment_id}: {response.status_code} - {response.text}")
+            except requests.exceptions.RequestException as e: 
+                print(f"Error deleting assignment: {e}")
+        elif cls.assignment_id:
+            print(f"Cannot delete assignment {cls.assignment_id}: teacher token was not available at teardown start.")
 
         users_to_delete_info = [
             ("Student1", cls.student1_serial_number, "student1"),

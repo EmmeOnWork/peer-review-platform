@@ -10,7 +10,7 @@ import urllib3
 
 # Questi path devono corrispondere ESATTAMENTE ai blocchi `location` in nginx.conf
 AUTH_API_PATH = "/auth/"
-#ASSIGNMENT_API_PATH = "/assignments/"
+ASSIGNMENT_API_PATH = "/assignments/"
 #SUBMISSION_API_PATH = "/submissions/"
 #REVIEW_API_PATH = "/reviews/"
 
@@ -156,30 +156,30 @@ class BaseLocustUser(HttpUser):
 class TeacherTasks(TaskSet):
     assignment_rubric = [{"criterion": "Completeness", "maxScore": 10}, {"criterion": "Quality", "maxScore": 10}]
 
-    # @task(10)
-    # def create_assignment(self):
-    #     headers = self.user.get_auth_headers()
-    #     if not headers: return
+    @task(10)
+    def create_assignment(self):
+        headers = self.user.get_auth_headers()
+        if not headers: return
         
-    #     potential_students = [s for s in shared_state.available_student_serials if s != self.user.serial_number]
-    #     if len(potential_students) < 3: return
+        potential_students = [s for s in shared_state.available_student_serials if s != self.user.serial_number]
+        if len(potential_students) < 3: return
         
-    #     assignment_data = {
-    #         "title": f"Locust Assignment {uuid.uuid4().hex[:6]}",
-    #         "description": "Automated assignment.",
-    #         "deadline": (datetime.now(timezone.utc) + timedelta(days=random.randint(1, 5))).isoformat(),
-    #         "rubric": self.assignment_rubric,
-    #         "students": random.sample(potential_students, 3)
-    #     }
+        assignment_data = {
+            "title": f"Locust Assignment {uuid.uuid4().hex[:6]}",
+            "description": "Automated assignment.",
+            "deadline": (datetime.now(timezone.utc) + timedelta(days=random.randint(1, 5))).isoformat(),
+            "rubric": self.assignment_rubric,
+            "students": random.sample(potential_students, 3)
+        }
         
-    #     with self.user.client.post(ASSIGNMENT_API_PATH, json=assignment_data, headers=headers, name="/teacher/create_assignment", catch_response=True) as response:
-    #         if response.ok:
-    #             assignment_id = response.json().get('id') or response.json().get('_id')
-    #             if assignment_id:
-    #                 shared_state.assignment_ids.append(assignment_id)
-    #                 response.success()
-    #             else: response.failure("Create assignment OK but no ID in response")
-    #         else: response.failure(f"Create assignment failed: {response.status_code} - {response.text}")
+        with self.user.client.post(ASSIGNMENT_API_PATH, json=assignment_data, headers=headers, name="/teacher/create_assignment", catch_response=True) as response:
+            if response.ok:
+                assignment_id = response.json().get('id') or response.json().get('_id')
+                if assignment_id:
+                    shared_state.assignment_ids.append(assignment_id)
+                    response.success()
+                else: response.failure("Create assignment OK but no ID in response")
+            else: response.failure(f"Create assignment failed: {response.status_code} - {response.text}")
 
     # @task(5)
     # def auto_assign_peer_reviews(self):
