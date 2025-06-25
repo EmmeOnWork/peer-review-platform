@@ -12,13 +12,16 @@ pipeline {
     }
 
     stages {
-        stage('Pulizia Workspace') {
+        // La pulizia 
+        stage('Pulizia Workspace Iniziale') {
             steps {
                 deleteDir()
-                echo "Pulizia workspace completata."
+                echo "Workspace pulito prima del checkout."
             }
         }
-        stage('Checkout') {
+
+        // Il checkout viene eseguito subito dopo la pulizia.
+        stage('Checkout Codice Sorgente') {
             steps {
                 checkout([
                     $class: 'GitSCM',
@@ -31,9 +34,31 @@ pipeline {
                         refspec: '+refs/heads/*:refs/remotes/origin/*'
                     ]]
                 ])
+                echo "Checkout completato. I file sono ora nel workspace."
             }
         }
 
+        // Questo stage controlla il messaggio dell'ultimo commit e, se trova la direttiva,
+        // termina la pipeline con successo, evitando esecuzioni inutili.
+        stage('Verifica [skip ci]') {
+            steps {
+                script {
+                    // Recupera il messaggio dell'ultimo commit
+                    def commitMessage = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    
+                    // Controlla se il messaggio contiene [skip ci] o [ci skip]
+                    if (commitMessage.contains('[skip ci]') || commitMessage.contains('[ci skip]')) {
+                        echo "Commit message contiene una direttiva per saltare la CI: la pipeline verrà terminata."
+                        // Imposta il risultato della build a SUCCESS e interrompe l'esecuzione degli stage successivi
+                        currentBuild.result = 'SUCCESS' 
+                        return // Esce dallo script e dallo stage
+                    }
+                    
+                    echo "Nessuna direttiva [skip ci] trovata. La pipeline prosegue normalmente."
+                }
+            }
+        }
+        
         stage('Orchestrator') {
             steps {
                 script {
@@ -94,6 +119,9 @@ pipeline {
         }
     }
 
+    // NUOVO: Il blocco 'post' ora funzionerà come previsto. Se la pipeline fallisce durante
+    // lo stage 'Orchestrator', i file del workspace saranno ancora presenti,
+    // permettendo al comando 'load' di trovare e caricare lo script di notifica.
     post {
         failure {
             script {

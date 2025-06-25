@@ -1,43 +1,87 @@
+echo "--- Inizio Stage: Generazione Diagramma dei Pacchetti ---"
+
 sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
-    // Path base dove sono i package
-    def baseDir = 'Gruppo3' 
-    // Directory di destinazione per i diagrammi
-    def outputDir = "${baseDir}/Documentation/FolderStructure"
-    // Crea la directory di destinazione se non esiste
+
+    // --- Sezione 1: Configurazione dei Percorsi ---
+    
+    def baseDir = '.' 
+    def outputDir = "${baseDir}/Documentation/Diagrams"
+
+    echo "La directory di output per i diagrammi sarà: ${outputDir}"
     sh "mkdir -p ${outputDir}"
 
-    // Genera contenuto PlantUML dinamicamente
-    def pumlContent = '@startuml\n'
-    pumlContent += 'package "root" {\n'
 
-    // Funzione ricorsiva per scansionare cartelle e scrivere package (solo sh)
+    // --- Sezione 2: Generazione del File PlantUML (.puml) ---
+
+    // Inizializza il contenuto del file .puml
+    def pumlContent = '@startuml\n'
+    pumlContent += 'skinparam packageStyle rect\n' // Stile grafico per i pacchetti
+    pumlContent += 'package "Progetto" {\n'
+
     def scanPackages
     scanPackages = { dir, indent ->
-        def foldersRaw = sh(script: "find ${dir} -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true", returnStdout: true).trim()
+        def foldersRaw = sh(script: "find ${dir} -mindepth 1 -maxdepth 1 -type d -not -path './.git*' -not -path './Documentation*' 2>/dev/null || true", returnStdout: true).trim()
+        
         if (!foldersRaw) {
             return
         }
+        
         def folders = foldersRaw.split('\n')
         folders.each { folder ->
+            // Estrai il nome semplice della cartella
             def packageName = folder.replaceFirst("^${dir}/", '')
+            // Aggiungi il pacchetto al diagramma
             pumlContent += "${indent}package \"${packageName}\" {\n"
+            // Chiamata ricorsiva per le sottocartelle, aumentando l'indentazione
             scanPackages(folder, indent + "  ")
             pumlContent += "${indent}}\n"
         }
     }
+
     scanPackages(baseDir, "  ")
+    
     pumlContent += '}\n@enduml'
 
-    // Scrive il file .puml dentro la cartella di destinazione
-    def pumlFilePath = "${outputDir}/package_diagram.puml"
+    def pumlFilePath = "${outputDir}/package_structure.puml"
     writeFile file: pumlFilePath, text: pumlContent
+    echo "File PlantUML generato con successo: ${pumlFilePath}"
 
-    // Installa PlantUML se necessario
-    sh 'sudo apt-get install -y plantuml graphviz || true'
 
-    // Genera PNG da file puml nella stessa directory
-    sh "plantuml -tpng ${pumlFilePath}"
+    // --- Sezione 3: Generazione dell'Immagine (.png) dal File .puml ---
+    
+    try {
+        sh 'sudo apt-get update && sudo apt-get install -y plantuml graphviz || true'
+        
+        sh "plantuml -tpng ${pumlFilePath}"
+        echo "Diagramma PNG generato con successo: ${pumlFilePath.replace('.puml', '.png')}"
+    } catch (e) {
+        echo "ATTENZIONE: La generazione dell'immagine PNG è fallita. Verrà committato solo il file .puml."
+        echo "Errore: ${e.message}"
+    }
 
-    echo "Diagramma dei package generato: ${outputDir}/package_diagram.png"
+
+    // --- Sezione 4: Commit e Push delle Modifiche su Git ---
+
+    // Configura l'identità del bot Git per questo commit. È una best practice.
+    sh 'git config --global user.email "ci-bot@example.com"'
+    sh 'git config --global user.name "bot"'
+
+    sh "git add ${outputDir}/"
+
+    // Controlla se ci sono effettivamente modifiche da committare.
+    def hasChanges = sh(script: 'git diff-index --quiet HEAD || echo "has_changes"', returnStdout: true).trim()
+
+    if (hasChanges.contains("has_changes")) {
+        echo "Modifiche rilevate nei diagrammi. Preparazione per commit e push..."
+
+        sh "git commit -m 'docs(autogen): Aggiorna diagramma struttura pacchetti [skip ci]'"
+
+        sh "git push origin HEAD:${env.BRANCH_NAME} || true"
+        
+        echo "Push del diagramma aggiornato eseguito con successo sul branch '${env.BRANCH_NAME}'."
+    } else {
+        echo "Nessuna modifica rilevata nel diagramma. Salto commit e push."
+    }
 }
 
+echo "--- Fine Stage: Generazione Diagramma dei Pacchetti ---"
