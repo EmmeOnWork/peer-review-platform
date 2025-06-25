@@ -74,7 +74,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     }
 
     // Attendi che tutti i pod siano Running
-    timeout(time: 5, unit: 'MINUTES') {
+    timeout(time: 20, unit: 'MINUTES') {
         waitUntil {
             def podStatus = sh(script: "microk8s kubectl get pods --namespace=${NAMESPACE} --no-headers", returnStdout: true).trim()
             if (!podStatus) {
