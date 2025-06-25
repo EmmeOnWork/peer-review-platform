@@ -35,7 +35,6 @@ paths:
         '415': { description: Unsupported Media Type }
         '429': { description: Too Many Requests }
         'default': { description: Unexpected error }
-  # ... existing code ...
   /assignments/{assignmentId}/students:
     get:
       operationId: handlers.assignment.get_assignment_students
@@ -66,7 +65,6 @@ paths:
         '406': { description: Not Acceptable }
         '429': { description: Too Many Requests }
         'default': { description: Unexpected error }
-# ... existing code ...
   /assignments/{assignmentId}:
     get:
       operationId: handlers.assignment.get_assignment_by_id
@@ -176,7 +174,7 @@ paths:
       operationId: handlers.assignment.get_by_student
       security:
         - BearerAuth: []
-      parameters: [] # REMOVED studentSerialNumber parameter
+      parameters: [] 
       responses:
         '200':
           description: OK
@@ -198,7 +196,7 @@ paths:
       operationId: handlers.assignment.health_check
       summary: Health check endpoint
       description: Check the health of the service.
-      security: [] # Aggiungi questa riga per disabilitare la sicurezza per questo endpoint
+      security: [] # Aggiungi questa riga per disabilitare la sicurezza per questo endpoint (forse da togliere)
       responses:
         '200':
           description: Service is healthy

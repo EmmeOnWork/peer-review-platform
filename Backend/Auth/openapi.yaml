@@ -94,7 +94,7 @@ paths:
 
   /health:
     get:
-      security: []  # Endpoint pubblico
+      security: []  # Endpoint pubblico (forse da dover togliere)
       operationId: handlers.auth_handler.health_check
       summary: Health check endpoint
       description: Check the health of the service.

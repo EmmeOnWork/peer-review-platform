@@ -23,8 +23,15 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     }
     def getEndpoints = { backendDirs, namespace ->
         def host = (namespace == 'production') ? "peer-review" : "pre-release.peer-review"
-        def eps = backendDirs.collect { "https://${host}/api/${it}/health" }
-        eps << "https://${host}/health"
+        def eps = []
+        
+        // Conversione diretta: nome cartella → endpoint lowercase
+        backendDirs.each { dir ->
+            eps << "https://${host}/${dir.toLowerCase()}/health" 
+        }
+        
+        // Aggiungi sempre il frontend
+        eps << "https://${host}/health/"
         return eps
     }
     def getPodList = { ns ->
@@ -56,6 +63,10 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     def backendDirs = getBackendDirs()
     def endpoints = getEndpoints(backendDirs, NAMESPACE)
     try {
+        echo "=== SMOKE TEST per namespace: ${NAMESPACE} ==="
+        echo "Cartelle Backend trovate: ${backendDirs}"
+        echo "Endpoint generati: ${endpoints}"
+        
         // Verifica endpoint definiti
         if (!endpoints || endpoints.isEmpty()) {
             error "Nessun endpoint definito per il health check. Pipeline interrotta."
@@ -67,6 +78,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
                 error "Health check fallito per l'endpoint: ${url}"
             }
         }
+        
         // Controllo stato pod
         echo "Verifico che tutti i pod siano in stato Running nel namespace '${NAMESPACE}'..."
         def podList = getPodList(NAMESPACE)
@@ -77,6 +89,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
         if (notRunning) {
             error "Alcuni pod non sono in stato Running:\n${notRunning}"
         }
+        
         // Controllo replica set
         echo "Verifico che i replica set siano corretti nel namespace '${NAMESPACE}'..."
         def deploymentsOutput = sh(

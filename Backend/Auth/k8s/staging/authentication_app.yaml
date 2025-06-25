@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: authentication-app
-          image: gruppo3/authentication:latest
+          image: gruppo3/auth:latest
           ports:
             - containerPort: 5000
           env:

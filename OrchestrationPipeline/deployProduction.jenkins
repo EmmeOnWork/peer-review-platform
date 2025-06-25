@@ -44,7 +44,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
             error "Nessun file .yaml trovato in ${k8sPath}. Pipeline interrotta."
         }
         yamlFiles.each { file ->
-            echo "Applico ${file} su ${NAMESPACE}..."
+            echo "Aplico ${file} su ${NAMESPACE}..."
             sh "microk8s kubectl apply -f ${file} --namespace=${NAMESPACE}"
         }
     }
@@ -61,42 +61,18 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
     echo "Eseguo rollout restart di tutti i deployment su ${NAMESPACE}..."
     sh "microk8s kubectl rollout restart deployment -n ${NAMESPACE}"
 
-    // Attendi che tutti i deployment abbiano completato il rollout
+    // Avvia il rollout status con timeout
     def deployments = sh(
         script: "microk8s kubectl get deployments -n ${NAMESPACE} -o jsonpath='{.items[*].metadata.name}'",
         returnStdout: true
     ).trim().split(' ')
+
     deployments.each { dep ->
         if (dep?.trim()) {
-            echo "Attendo il completamento del rollout per deployment: ${dep}"
-            sh "microk8s kubectl rollout status deployment/${dep} -n ${NAMESPACE} --timeout=300s"
+            echo "Attendo completamento rollout per deployment: ${dep}"
+            sh "microk8s kubectl rollout status deployment/${dep} -n ${NAMESPACE} --timeout=1200s" // 20 minuti
         }
     }
 
-    // Attendi che tutti i pod siano Running
-    timeout(time: 20, unit: 'MINUTES') {
-        waitUntil {
-            def podStatus = sh(script: "microk8s kubectl get pods --namespace=${NAMESPACE} --no-headers", returnStdout: true).trim()
-            if (!podStatus) {
-                echo "Nessun pod trovato. Attendo..."
-                return false
-            }
-            def allRunning = podStatus.readLines().every {
-                it.split()[2] == 'Running'
-            }
-            if (!allRunning) {
-                echo "Alcuni pod non sono ancora Running. Attendo..."
-            }
-            return allRunning
-        }
-    }
-    // Dopo il timeout, se non tutti i pod sono Running, blocca la pipeline
-    def notRunningPods = sh(
-        script: "microk8s kubectl get pods --namespace=${NAMESPACE} --no-headers | awk '\$3 != \"Running\" {print \$1, \$3}' || true",
-        returnStdout: true
-    ).trim()
-    if (notRunningPods) {
-        error "Alcuni pod non sono in stato Running dopo il deploy:\n${notRunningPods}"
-    }
-    echo "Tutti i pod sono in stato Running su ${NAMESPACE}. Deploy produzione completato."
+    echo "Tutti i deployment sono stati aggiornati su ${NAMESPACE}. Deploy produzione completato."
 }
