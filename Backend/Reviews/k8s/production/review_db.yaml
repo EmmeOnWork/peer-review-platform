@@ -1,4 +1,4 @@
-# review_mongodb_k8s.yaml
+# review_db.yaml
 
 apiVersion: v1
 kind: Secret
