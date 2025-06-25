@@ -1,0 +1,73 @@
+@startuml
+skinparam packageStyle rect
+package "Progetto" {
+  package "OrchestrationPipeline" {
+  }
+  package "Ingress" {
+  }
+  package "Backend" {
+    package "Authentication" {
+      package "tests" {
+      }
+      package "k8s" {
+        package "production" {
+        }
+        package "staging" {
+        }
+      }
+      package "handlers" {
+      }
+    }
+  }
+  package "Tests" {
+    package "integration_tests" {
+      package "k8s" {
+        package "staging" {
+        }
+      }
+    }
+    package "performance_test" {
+      package "k8s" {
+        package "production" {
+        }
+      }
+    }
+  }
+  package "Frontend" {
+    package "etc" {
+      package "nginx" {
+      }
+    }
+    package "src" {
+      package "services" {
+      }
+      package "views" {
+        package "student" {
+        }
+        package "teacher" {
+        }
+      }
+      package "store" {
+      }
+      package "assets" {
+      }
+      package "router" {
+      }
+      package "components" {
+        package "auth" {
+        }
+        package "common" {
+        }
+      }
+    }
+    package "k8s" {
+      package "production" {
+      }
+      package "staging" {
+      }
+    }
+    package "public" {
+    }
+  }
+}
+@enduml
