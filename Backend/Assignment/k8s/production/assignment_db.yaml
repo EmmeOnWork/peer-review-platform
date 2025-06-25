@@ -51,7 +51,7 @@ spec:
               memory: "768Mi"
             limits:
               cpu: "300m"
-              memory: "1.2Gi"
+              memory: "1229Mi"
           volumeMounts:
             - name: mongo-persistent-storage # Nome più descrittivo e coerente
               mountPath: /data/db
