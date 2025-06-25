@@ -9,3 +9,4 @@ cryptography
 requests
 gunicorn
 pytest
+mongomock
