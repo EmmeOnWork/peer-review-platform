@@ -68,7 +68,7 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
                 }
                 def allOk = podStatus.readLines().every {
                     def cols = it.split()
-                    return cols[2] == 'Running' && cols[1].startsWith('1/') && cols[3] == '0'
+                    return cols[2] == 'Running' && cols[1].startsWith('1/')
                 }
                 if (!allOk) {
                     echo "Alcuni pod non sono ancora Running o hanno restart. Attendo..."

@@ -91,7 +91,14 @@ sshagent(credentials: [env.GIT_CREDENTIALS_ID]) {
                     echo "Nessun pod (non-job) trovato. Attendo..."
                     return false
                 }
-                def allRunning = lines.every { it.split()[2] == 'Running' }
+                def allRunning = lines.every { 
+                    def parts = it.split()
+                    def status = parts[2]
+                    def ready = parts[1]
+                    
+                    // Verifica che sia Running e che tutte le repliche siano pronte
+                    return status == 'Running' && ready.contains('/') && ready.split('/')[0] == ready.split('/')[1]
+                }
                 if (!allRunning) {
                     echo "Alcuni pod non-job non sono ancora Running. Attendo..."
                 }
