@@ -1,0 +1,493 @@
+openapi: 3.0.3
+info:
+  title: Submission Service API
+  version: 1.2.0 # Incremented version
+  description: API for managing assignment submissions. Student serial numbers are 10-digit numeric.
+
+servers:
+  - url: http://submission-app-service:5002 # Example for containerized environment
+    description: Submission Service
+
+paths:
+  /health:
+    get:
+      operationId: handlers.submission_handler.health_check
+      summary: Health check endpoint
+      description: Checks the health of the service and its dependencies (DB, MinIO).
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy or one of its dependencies is down.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /submissions:
+    post:
+      summary: Submit an assignment
+      description: |
+        Allows students to submit an assignment. The submission can include text and/or file attachments.
+        The student's serial number is identified from the authentication token.
+        Checks against assignment deadline.
+      operationId: handlers.submission_handler.submit_assignment
+      tags:
+        - Submissions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubmissionCreateRequest'
+            # It's good practice to also specify encoding for multipart if specific fields have non-default content types,
+            # but generally not needed for standard file uploads + form fields.
+      responses:
+        '201':
+          description: Submission was successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponse'
+        '400':
+          description: Bad Request (e.g., missing `assignmentId`, invalid data, or deadline information missing from assignment).
+        '401':
+          description: Unauthorized (e.g., token missing or invalid).
+        '403':
+          description: Forbidden (e.g., assignment deadline has passed).
+        '404':
+          description: Not Found (e.g., the specified assignmentId does not exist).
+        '500':
+          description: Internal Server Error (e.g., database operation failed, MinIO upload failed, unexpected error).
+        '503':
+          description: Service Communication Error (e.g., unable to connect to the Assignment Service to check deadline).
+
+  /submissions/mine:
+    get:
+      summary: Get my submissions
+      description: Retrieves all submissions made by the authenticated student.
+      operationId: handlers.submission_handler.get_my_submissions
+      tags:
+        - Submissions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of submissions made by the authenticated student.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubmissionResponse'
+        '401':
+          description: Unauthorized.
+        '500':
+          description: Internal Server Error (e.g., database operation failed).
+
+  /submissions/assignment/{assignmentId}:
+    get:
+      summary: Get all submissions for a specific assignment
+      description: |
+        Retrieves all submissions for a given assignment.
+        Accessible only by the teacher who owns the assignment or an administrator.
+      operationId: handlers.submission_handler.get_all_submissions_for_assignment
+      tags:
+        - Submissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          description: The unique identifier of the assignment.
+          schema:
+            type: string
+            example: "assign_prog_intro_fall23"
+      responses:
+        '200':
+          description: A list of all submissions for the specified assignment.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubmissionResponse' # Consider a summarized version for lists if payload is large
+        '400':
+          description: Bad Request (e.g., invalid `assignmentId` format).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden (e.g., authenticated user is not the teacher owner of the assignment or an admin).
+        '404':
+          description: Not Found (e.g., the specified assignment does not exist, checked during ownership verification).
+        '500':
+          description: Internal Server Error.
+        '503':
+          description: Service Communication Error (e.g., unable to connect to Assignment Service for ownership check).
+
+  /submissions/{submissionId}:
+    get:
+      summary: Get a specific submission by its ID
+      description: |
+        Retrieves detailed information for a specific submission by its unique ID.
+        Access is restricted to:
+        - The student who made the submission.
+        - The teacher who owns the assignment to which this submission belongs.
+        - An administrator.
+      operationId: handlers.submission_handler.get_student_submission_for_assignment
+      tags:
+        - Submissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          description: The unique identifier of the submission (MongoDB ObjectId as a string).
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{24}$' # Regex for MongoDB ObjectId
+            example: "60d5ec49c37a47908afdf002"
+      responses:
+        '200':
+          description: Successfully retrieved the submission details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponse'
+        '400':
+          description: Bad Request (e.g., invalid `submissionId` format).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden (user is not authorized to access this submission).
+        '404':
+          description: Not Found (submission with the given ID does not exist, or its associated assignment for teacher auth check does not exist).
+        '500':
+          description: Internal Server Error.
+        '503':
+          description: Service Communication Error (e.g., during teacher authorization check).
+
+  /submissions/download/{studentId}/{assignmentId}/{filename}:
+    get:
+      summary: Download a submission attachment
+      description: |
+        Downloads a specific attachment file from a submission.
+        Access is restricted to:
+        - The student who made the submission.
+        - The teacher who owns the assignment to which this submission belongs.
+        - An administrator.
+      operationId: handlers.submission_handler.download_attachment
+      tags:
+        - Submissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          description: The student serial number
+          schema:
+            type: string
+        - name: assignmentId
+          in: path
+          required: true
+          description: The assignment ID
+          schema:
+            type: string
+        - name: filename
+          in: path
+          required: true
+          description: The actual filename (UUID + extension)
+          schema:
+            type: string
+            example: "submissions/0123456789/assign_prog_intro_fall23/a1b2c3d4-e5f6-7890-1234-567890abcdef.pdf"
+      responses:
+        '200':
+          description: File downloaded successfully
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Attachment filename
+              schema:
+                type: string
+                example: "attachment; filename=document.pdf"
+            Content-Type:
+              description: MIME type of the file
+              schema:
+                type: string
+                example: "application/pdf"
+        '400':
+          description: Bad Request (e.g., invalid filename format).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden (user is not authorized to download this file).
+        '404':
+          description: Not Found (file does not exist).
+        '500':
+          description: Internal Server Error.
+        '503':
+          description: Service Communication Error (e.g., during teacher authorization check).
+
+  /submissions/for-review/{submissionId}:
+    get:
+      summary: Get submission content for peer review
+      description: |
+        Retrieves submission content (text and attachments list) for peer review purposes.
+        Access is restricted to students who have been assigned to review this submission.
+        Authorization is verified through the Review service.
+      operationId: handlers.submission_handler.get_submission_for_review
+      tags:
+        - Submissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          description: The submission ID to retrieve for review
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{24}$'
+            example: "60d5ec49c37a47908afdf002"
+      responses:
+        '200':
+          description: Submission content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionForReviewResponse'
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden (user is not assigned to review this submission).
+        '404':
+          description: Not Found (submission does not exist).
+        '500':
+          description: Internal Server Error.
+        '503':
+          description: Service Communication Error (e.g., during review authorization check).
+
+  /submissions/for-review/{submissionId}/download/{filename}:
+    get:
+      summary: Download attachment for peer review
+      description: |
+        Downloads a specific attachment file from a submission for peer review purposes.
+        Access is restricted to students who have been assigned to review this submission.
+        Authorization is verified through the Review service.
+      operationId: handlers.submission_handler.download_attachment_for_review
+      tags:
+        - Submissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          description: The submission ID
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{24}$'
+            example: "60d5ec49c37a47908afdf002"
+        - name: filename
+          in: path
+          required: true
+          description: The filename to download
+          schema:
+            type: string
+            example: "a1b2c3d4-e5f6-7890-1234-567890abcdef.pdf"
+      responses:
+        '200':
+          description: File downloaded successfully
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Attachment filename
+              schema:
+                type: string
+                example: "attachment; filename=document.pdf"
+            Content-Type:
+              description: MIME type of the file
+              schema:
+                type: string
+                example: "application/pdf"
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden (user is not assigned to review this submission).
+        '404':
+          description: Not Found (file does not exist).
+        '500':
+          description: Internal Server Error.
+        '503':
+          description: Service Communication Error (e.g., during review authorization check).
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT Bearer token for authentication. Example: `Bearer {token}`"
+      # x-bearerInfoFunc is a Connexion-specific extension for Flask to process the token
+      x-bearerInfoFunc: handlers.utils.decode_token # Ensure this path is correct for your project
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "OK"
+        details:
+          type: object
+          properties:
+            database:
+              type: string
+              example: "OK"
+            minio_storage:
+              type: string
+              example: "OK"
+
+    SubmissionCreateRequest:
+      type: object
+      required:
+        - assignmentId
+      properties:
+        assignmentId:
+          type: string
+          description: The ID of the assignment for which this submission is intended.
+          example: "assign_prog_intro_fall23"
+        text:
+          type: string
+          nullable: true
+          description: Optional textual content of the submission.
+          example: "This is my textual answer to the assignment."
+        attachments: # This field name must match what `flask_request.files.getlist('attachments')` expects
+          type: array
+          description: |
+            Optional list of files to be uploaded as attachments.
+            In a `multipart/form-data` request, each item is a file.
+            The OpenAPI `type: string, format: binary` here is a common way to represent file uploads.
+          items:
+            type: string
+            format: binary # Indicates a file upload.
+          maxItems: 5 # Example constraint: up to 5 files
+      example:
+        assignmentId: "assign_prog_intro_fall23"
+        text: "My solution is attached."
+        # Note: 'attachments' field in an actual multipart request would contain file data, not just names.
+
+    SubmissionResponse:
+      type: object
+      properties:
+        submissionId:
+          type: string
+          pattern: '^[a-fA-F0-9]{24}$'
+          description: Unique identifier of the submission (MongoDB ObjectId).
+          example: "60d5ec49c37a47908afdf002"
+        assignmentId:
+          type: string
+          description: Identifier of the assignment to which this submission belongs.
+          example: "assign_prog_intro_fall23"
+        studentSerialNumber:
+          type: string
+          pattern: '^\d{10}$'
+          description: The 10-digit serial number of the student who made the submission.
+          example: "0123456789"
+        studentName:
+          type: string
+          nullable: true
+          description: First name of the student. (Fetched from Auth service or defaults to 'Unknown')
+          example: "Jane"
+        studentSurname:
+          type: string
+          nullable: true
+          description: Last name of the student. (Fetched from Auth service or defaults to 'Unknown')
+          example: "Doe"
+        text:
+          type: string
+          nullable: true
+          description: Textual content of the submission, if any.
+          example: "This is my textual answer."
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uri # Or just string, representing the MinIO object name/path
+            description: Identifier or path for a stored attachment.
+            example: "submissions/0123456789/assign_prog_intro_fall23/a1b2c3d4-e5f6-7890-1234-567890abcdef.pdf"
+          description: List of identifiers for any attachments included in the submission.
+        submittedAt:
+          type: string
+          format: date-time # ISO 8601 datetime string in UTC
+          description: The timestamp when the submission was recorded, in UTC.
+          example: "2023-10-26T10:30:00Z"
+      required: # Fields guaranteed to be in the response
+        - submissionId
+        - assignmentId
+        - studentSerialNumber
+        - submittedAt
+  
+    SubmissionForReviewResponse:
+      type: object
+      properties:
+        submissionId:
+          type: string
+          pattern: '^[a-fA-F0-9]{24}$'
+          description: Unique identifier of the submission
+          example: "60d5ec49c37a47908afdf002"
+        assignmentId:
+          type: string
+          description: Identifier of the assignment
+          example: "assign_prog_intro_fall23"
+        text:
+          type: string
+          nullable: true
+          description: Textual content of the submission
+          example: "This is my textual answer."
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              filename:
+                type: string
+                description: The stored filename (UUID + extension)
+                example: "a1b2c3d4-e5f6-7890-1234-567890abcdef.pdf"
+              originalName:
+                type: string
+                description: The original filename as uploaded by the student
+                example: "Relazione_Progetto.pdf"
+              size:
+                type: integer
+                description: File size in bytes
+                example: 1024000
+          description: List of attachments in the submission
+        submittedAt:
+          type: string
+          format: date-time
+          description: The timestamp when the submission was recorded
+          example: "2023-10-26T10:30:00Z"
+      required:
+        - submissionId
+        - assignmentId
+        - submittedAt

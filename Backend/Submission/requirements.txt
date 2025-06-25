@@ -1,0 +1,13 @@
+connexion[flask,swagger-ui,uvicorn]
+Flask
+PyJWT
+pymongo
+minio
+uvicorn
+gunicorn
+requests
+cryptography
+python-dotenv # For local development to load .env files
+werkzeug # Explicitly add if needed for file uploads, often a connexion/flask dependency
+pytest
+mongomock

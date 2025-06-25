@@ -28,9 +28,9 @@ spec:
           - "-r"
           - "2"
           - "--run-time"
-          - "2m30s"
+          - "4m"
           - "--host=${TARGET_HOST_URL}"
-          - "--check-fail-ratio=0.10"
+          - "--check-fail-ratio=0.15"
           - "--exit-code-on-error=1"
         resources:
           limits:

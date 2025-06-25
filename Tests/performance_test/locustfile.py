@@ -11,7 +11,7 @@ import urllib3
 # Questi path devono corrispondere ESATTAMENTE ai blocchi `location` in nginx.conf
 AUTH_API_PATH = "/auth/"
 ASSIGNMENT_API_PATH = "/assignments/"
-#SUBMISSION_API_PATH = "/submissions/"
+SUBMISSION_API_PATH = "/submissions/"
 #REVIEW_API_PATH = "/reviews/"
 
 TEST_PASSWORD = "password123"
@@ -215,29 +215,29 @@ class TeacherTasks(TaskSet):
 # --- Student User Tasks ---
 class StudentTasks(TaskSet):
 
-    # @task(10)
-    # def submit_assignment(self):
-    #     headers = self.user.get_auth_headers()
-    #     if not headers or not self.user.serial_number or not shared_state.assignment_ids: return
+    @task(10)
+    def submit_assignment(self):
+        headers = self.user.get_auth_headers()
+        if not headers or not self.user.serial_number or not shared_state.assignment_ids: return
 
-    #     target_assignment_id = random.choice(shared_state.assignment_ids)
-    #     files = {'attachments': (f'student_{self.user.serial_number}_submission.txt', io.BytesIO(b"Locust submission content."), 'text/plain')}
-    #     data = {'assignmentId': target_assignment_id, 'text': f'Submission by {self.user.serial_number}'}
+        target_assignment_id = random.choice(shared_state.assignment_ids)
+        files = {'attachments': (f'student_{self.user.serial_number}_submission.txt', io.BytesIO(b"Locust submission content."), 'text/plain')}
+        data = {'assignmentId': target_assignment_id, 'text': f'Submission by {self.user.serial_number}'}
 
-    #     with self.user.client.post(SUBMISSION_API_PATH, data=data, files=files, headers=headers, name="/student/submit_assignment", catch_response=True) as response:
-    #         if response.ok:
-    #             submission_json = response.json()
-    #             submission_id = submission_json.get('submissionId')
-    #             if submission_id:
-    #                 if target_assignment_id not in shared_state.submission_ids_for_review:
-    #                     shared_state.submission_ids_for_review[target_assignment_id] = []
-    #                 if submission_id not in shared_state.submission_ids_for_review[target_assignment_id]:
-    #                      shared_state.submission_ids_for_review[target_assignment_id].append(submission_id)
-    #                 response.success()
-    #             else: response.failure("Submission OK but no submissionId in response")
-    #         elif response.status_code == 400 and "already submitted" in response.text.lower(): response.success()
-    #         elif response.status_code in [403, 404]: response.success()
-    #         else: response.failure(f"Submit assignment failed: {response.status_code} - {response.text}")
+        with self.user.client.post(SUBMISSION_API_PATH, data=data, files=files, headers=headers, name="/student/submit_assignment", catch_response=True) as response:
+            if response.ok:
+                submission_json = response.json()
+                submission_id = submission_json.get('submissionId')
+                if submission_id:
+                    if target_assignment_id not in shared_state.submission_ids_for_review:
+                        shared_state.submission_ids_for_review[target_assignment_id] = []
+                    if submission_id not in shared_state.submission_ids_for_review[target_assignment_id]:
+                         shared_state.submission_ids_for_review[target_assignment_id].append(submission_id)
+                    response.success()
+                else: response.failure("Submission OK but no submissionId in response")
+            elif response.status_code == 400 and "already submitted" in response.text.lower(): response.success()
+            elif response.status_code in [403, 404]: response.success()
+            else: response.failure(f"Submit assignment failed: {response.status_code} - {response.text}")
 
     # @task(5)
     # def list_and_process_assigned_reviews(self):

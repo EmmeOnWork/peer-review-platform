@@ -9,7 +9,10 @@
       <!-- Profile Card -->
       <div class="dashboard-card profile-card">
         <div class="card-icon">
-          <!-- SVG omitted for brevity -->
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" fill="#4A90E2"/>
+            <path d="M12 14C7.58172 14 4 17.5817 4 22H20C20 17.5817 16.4183 14 12 14Z" fill="#4A90E2"/>
+          </svg>
         </div>
         <h3 class="card-title">My Profile</h3>
         <p class="card-description">Manage your personal information and settings</p>
@@ -19,23 +22,58 @@
       <!-- Assignments Card -->
       <div class="dashboard-card assignments-card">
         <div class="card-icon">
-          <!-- SVG omitted for brevity -->
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3Z" fill="#50C878"/>
+            <path d="M9 17L4 12L5.41 10.59L9 14.17L18.59 4.58L20 6L9 17Z" fill="white"/>
+          </svg>
         </div>
         <h3 class="card-title">View Assignments</h3>
         <p class="card-description">Browse and work on your course assignments</p>
         <router-link to="/student/assignments" class="card-button">View Assignments</router-link>
       </div>
+
+      <!-- Submissions Card -->
+      <div class="dashboard-card submissions-card">
+        <div class="card-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2Z" fill="#FF6B6B"/>
+            <path d="M14 2V8H20" fill="#FF6B6B"/>
+            <path d="M16 13H8V15H16V13Z" fill="white"/>
+            <path d="M16 17H8V19H16V17Z" fill="white"/>
+          </svg>
+        </div>
+        <h3 class="card-title">My Submissions</h3>
+        <p class="card-description">Track your submitted assignments and grades</p>
+        <router-link to="/student/submissions" class="card-button">View Submissions</router-link>
+      </div>
+
+      <!-- Rimuovere completamente questa sezione:
+      <div class="dashboard-card reviews-card">
+        <div class="card-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L13.09 8.26L20 9L13.09 9.74L12 16L10.91 9.74L4 9L10.91 8.26L12 2Z" fill="#9B59B6"/>
+            <path d="M19 15L20.25 18.5L24 19L20.25 19.5L19 23L17.75 19.5L14 19L17.75 18.5L19 15Z" fill="#9B59B6"/>
+            <path d="M5 15L6.25 18.5L10 19L6.25 19.5L5 23L3.75 19.5L0 19L3.75 18.5L5 15Z" fill="#9B59B6"/>
+          </svg>
+        </div>
+        <h3 class="card-title">Peer Reviews</h3>
+        <p class="card-description">Review classmates' work and receive feedback</p>
+        <router-link to="/student/reviews" class="card-button">Start Reviews</router-link>
+      </div>
+      -->
     </div>
 
     <div class="logout-section">
       <button @click="logoutUser" class="logout-button">
-        <!-- SVG omitted for brevity -->
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17 7L15.59 8.41L18.17 11H8V13H18.17L15.59 15.59L17 17L22 12L17 7Z" fill="white"/>
+          <path d="M19 19H5V5H19V3H5C3.89 3 3 3.89 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V17H19V19Z" fill="white"/>
+        </svg>
         Logout
       </button>
     </div>
   </div>
 </template>
-
 
 <script setup>
 import { computed } from 'vue';

@@ -52,6 +52,19 @@ const routes = [
     component: () => import('../views/teacher/TeacherAssignmentsPage.vue'),
     meta: { requiresAuth: true, role: 'teacher' }
   },
+  {
+    path: '/teacher/assignments/:assignmentId/submissions',
+    name: 'TeacherSubmissionsList',
+    component: () => import('../views/teacher/SubmissionsListPage.vue'),
+    meta: { requiresAuth: true, role: 'teacher' }
+  },
+  // Modifica la rotta esistente per includere assignmentId
+  {
+    path: '/teacher/assignments/:assignmentId/submissions/:submissionId',
+    name: 'TeacherSubmissionDetails',
+    component: () => import('../views/teacher/SubmissionDetailsPage.vue'),
+    meta: { requiresAuth: true, role: 'teacher' }
+  },
 
   // --- Rotte Studente ---
   {
@@ -66,6 +79,26 @@ const routes = [
     component: () => import('../views/student/StudentAssignmentsPage.vue'),
     meta: { requiresAuth: true, role: 'student' }
   },
+  {
+    path: '/student/assignments/:assignmentId/submit',
+    name: 'StudentSubmissionForm',
+    component: () => import('../views/student/SubmissionFormPage.vue'),
+    meta: { requiresAuth: true, role: 'student' }
+  },
+
+  // Rotte per visualizzare le submissions degli studenti
+  {
+    path: '/student/submissions',
+    name: 'MySubmissions',
+    component: () => import('../views/student/MySubmissionsPage.vue'),
+    meta: { requiresAuth: true, role: 'student' }
+  },
+  {
+    path: '/student/submissions/:submissionId',
+    name: 'StudentSubmissionDetails',
+    component: () => import('../views/student/SubmissionDetailsPage.vue'),
+    meta: { requiresAuth: true, role: 'student' }
+  },
 
   // --- Rotta Profilo Utente ---
   {
@@ -74,6 +107,20 @@ const routes = [
     component: UserProfile,
     meta: { requiresAuth: true }
   },
+
+  // Rimuovere queste due rotte:
+  // {
+  //   path: '/student/reviews',
+  //   name: 'StudentPeerReviews',
+  //   component: () => import('../views/student/PeerReviewsPage.vue'),
+  //   meta: { requiresAuth: true, role: 'student' }
+  // },
+  // {
+  //   path: '/student/reviews/:reviewId',
+  //   name: 'PeerReviewForm',
+  //   component: () => import('../views/student/PeerReviewFormPage.vue'),
+  //   meta: { requiresAuth: true, role: 'student' }
+  // },
 
   // --- Not Found ---
   {

@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: submission-app
+  labels:
+    app: submission-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: submission-app
+  template:
+    metadata:
+      labels:
+        app: submission-app
+    spec:
+      containers:
+        - name: submission-app
+          image: gruppo3/submission:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5002
+          env:
+            - name: MONGO_HOST
+              value: "submission-mongodb-headless-service"
+            - name: MONGO_PORT
+              value: "27017"
+            - name: MONGO_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: submission-mongodb-secret
+                  key: mongo-root-username
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: submission-mongodb-secret
+                  key: mongo-root-password
+            - name: MONGO_DB_NAME
+              value: "submissiondb"
+            - name: MINIO_ENDPOINT
+              value: "submission-minio-service:9000"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: submission-minio-secret
+                  key: minio-access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: submission-minio-secret
+                  key: minio-secret-key
+            - name: MINIO_BUCKET_NAME
+              value: "submissions"
+            - name: ASSIGNMENT_SERVICE_URL
+              value: "http://assignment-app-service:5001"
+            - name: AUTHENTICATION_SERVICE_URL
+              value: "http://authentication-app-service:5000"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "200m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5002
+            initialDelaySeconds: 200
+            periodSeconds: 100
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5002
+            initialDelaySeconds: 200
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: submission-app-service
+  labels:
+    app: submission-app
+spec:
+  selector:
+    app: submission-app
+  ports:
+    - protocol: TCP
+      port: 5002
+      targetPort: 5002
+  type: ClusterIP

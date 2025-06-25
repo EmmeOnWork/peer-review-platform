@@ -1,0 +1,210 @@
+# submission_dbs.yaml (MODIFICATO)
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: submission-mongodb-secret
+  labels:
+    app: submission-mongo # Etichetta per coerenza
+type: Opaque
+data:
+  mongo-root-username: REDACTED
+  mongo-root-password: REDACTED
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: submission-minio-secret
+  labels:
+    app: submission-minio # Etichetta per coerenza
+type: Opaque
+data:
+  minio-access-key: REDACTED
+  minio-secret-key: REDACTED
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: submission-mongodb-statefulset
+  labels:
+    app: submission-mongo
+spec:
+  serviceName: "submission-mongodb-headless-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: submission-mongo
+  template:
+    metadata:
+      labels:
+        app: submission-mongo
+    spec:
+      containers:
+        - name: mongo-container
+          image: mongo:4.4
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: submission-mongodb-secret
+                  key: mongo-root-username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: submission-mongodb-secret
+                  key: mongo-root-password
+            - name: MONGO_INITDB_DATABASE
+              value: "submissiondb"
+          resources:
+            requests:
+              cpu: "150m"
+              memory: "768Mi"
+            limits:
+              cpu: "300m"
+              memory: "1229Mi"
+          volumeMounts:
+            - name: mongo-persistent-storage # Nome del volume definito in volumeClaimTemplates
+              mountPath: /data/db
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-persistent-storage # Questo nome viene usato nel volumeMounts
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 3Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: submission-mongodb-headless-service # Headless service per MongoDB StatefulSet
+  labels:
+    app: submission-mongo
+spec:
+  clusterIP: None
+  selector:
+    app: submission-mongo
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+---
+# --- INIZIO MODIFICHE PER MINIO STATEFULSET ---
+apiVersion: apps/v1
+kind: StatefulSet # <<<< CAMBIATO DA Deployment A StatefulSet
+metadata:
+  name: submission-minio-statefulset # <<<< NOME CAMBIATO per riflettere che è uno StatefulSet
+  labels:
+    app: submission-minio
+spec:
+  serviceName: "submission-minio-headless-service" # <<<< NOME DEL SERVIZIO HEADLESS PER MINIO
+  replicas: 1 # Per ora una singola replica, ma può essere scalato per MinIO distribuito
+  selector:
+    matchLabels:
+      app: submission-minio
+  template:
+    metadata:
+      labels:
+        app: submission-minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        args:
+        - server
+        # Per una singola istanza StatefulSet, il path /data è sufficiente.
+        # Per MinIO distribuito (più repliche), gli args sarebbero diversi,
+        # es. server http://submission-minio-statefulset-{0...N-1}.submission-minio-headless-service/data{1...M}
+        - /data # Path all'interno del container dove MinIO memorizza i dati
+        - --console-address 
+        - ":9001"
+        ports:
+        - name: api
+          containerPort: 9000
+        - name: console
+          containerPort: 9001
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: submission-minio-secret
+              key: minio-access-key
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: submission-minio-secret
+              key: minio-secret-key
+        # Per MinIO distribuito, potresti aver bisogno di altre variabili d'ambiente
+        # come MINIO_VOLUMES, MINIO_SERVER_URLS, ecc.
+        # Per una singola istanza, questo è sufficiente.
+        resources: # Aggiungi resources se vuoi
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "150m"
+              memory: "256Mi"
+        volumeMounts:
+        - name: minio-data-storage # Nome del volume definito in volumeClaimTemplates
+          mountPath: /data # MinIO userà questa directory per i suoi dati
+  volumeClaimTemplates: # <<<< AGGIUNTO volumeClaimTemplates
+  - metadata:
+      name: minio-data-storage # Questo nome viene usato nel volumeMounts
+    spec:
+      accessModes: [ "ReadWriteOnce" ] # Tipico per StatefulSet con storage dedicato
+      resources:
+        requests:
+          storage: 4Gi # Dimensione dello storage per ogni pod MinIO
+---
+# Non è più necessario un PersistentVolumeClaim separato (submission-minio-pvc)
+# perché è gestito da volumeClaimTemplates nello StatefulSet.
+# Quindi, la risorsa PersistentVolumeClaim 'submission-minio-pvc' può essere rimossa
+# se non è usata da altro. Se la elimini, assicurati di fare un backup dei dati
+# se necessario, o lascia che Kubernetes crei un nuovo PVC per lo StatefulSet.
+
+# Servizio Headless per lo StatefulSet MinIO (opzionale ma buona pratica per StatefulSet)
+# Questo permette una risoluzione DNS stabile per ogni pod dello StatefulSet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: submission-minio-headless-service # <<<< NUOVO SERVIZIO HEADLESS
+  labels:
+    app: submission-minio
+spec:
+  clusterIP: None # Rende il servizio headless
+  selector:
+    app: submission-minio # Seleziona i pod dello StatefulSet MinIO
+  ports:
+  - name: api
+    protocol: TCP
+    port: 9000
+    targetPort: 9000
+  - name: console # Anche se la console non è tipicamente usata da altri servizi, la includiamo per completezza
+    protocol: TCP
+    port: 9001
+    targetPort: 9001
+---
+# Servizio ClusterIP per esporre MinIO (questo può rimanere simile)
+# Ma ora dovrebbe selezionare i pod dello StatefulSet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: submission-minio-service # Questo è il servizio che il tuo submission-app userà
+  labels:
+    app: submission-minio
+spec:
+  type: ClusterIP
+  selector:
+    app: submission-minio # Assicurati che questo selezioni i pod dello StatefulSet MinIO
+  ports:
+  - name: api
+    protocol: TCP
+    port: 9000      # Porta esposta dal servizio
+    targetPort: 9000  # Porta del container (api)
+  - name: console
+    protocol: TCP
+    port: 9001      # Porta esposta dal servizio
+    targetPort: 9001  # Porta del container (console)
+# --- FINE MODIFICHE PER MINIO STATEFULSET ---

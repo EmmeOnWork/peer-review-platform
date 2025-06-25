@@ -14,5 +14,7 @@ spec:
           value: "http://authentication-app-service:5000"
         - name: ASSIGNMENT_SERVICE_URL
           value: "http://assignment-app-service:5001"
+        - name: SUBMISSION_SERVICE_URL
+          value: "http://submission-app-service:5002"
 
       restartPolicy: Never

@@ -9,6 +9,7 @@ import io
 # Base URLs
 AUTH_SERVICE_URL = os.getenv('AUTHENTICATION_SERVICE_URL', 'http://authentication-app-service:5000')
 ASSIGNMENT_SERVICE_URL = os.getenv('ASSIGNMENT_SERVICE_URL', 'http://assignment-app-service:5001')
+SUBMISSION_SERVICE_URL = os.getenv('SUBMISSION_SERVICE_URL', 'http://submission-app-service:5002')
 
 
 TEST_PASSWORD = "password123"
@@ -26,6 +27,9 @@ class TestIntegration:
     assignment_id = None
     assignment_rubric = None
 
+    student1_submission_id = None
+    student2_submission_id = None
+    student3_submission_id = None
 
     # --- HEALTH CHECKS ---
     def test_00_auth_service_health(self):
@@ -233,8 +237,57 @@ class TestIntegration:
         assert TestIntegration.assignment_id is not None, f"Assignment _id not found in response: {assignment_response_json}"
         print(f"\nCreated Assignment ID: {TestIntegration.assignment_id}")
 
+    def test_10_student1_submit_assignment(self): 
+        if not (TestIntegration.student1_token and TestIntegration.assignment_id):
+            pytest.skip("Student1 token or assignment ID missing.")
+        url = f"{SUBMISSION_SERVICE_URL}/submissions"
+        headers = {'Authorization': f'Bearer {TestIntegration.student1_token}'}
+        files = {'attachments': ('student1_submission.txt', io.BytesIO(b"Student 1 submission content."), 'text/plain')}
+        data = {'assignmentId': TestIntegration.assignment_id, 'text': 'Submission by Student 1'}
+        response = requests.post(url, data=data, files=files, headers=headers)
+        assert response.status_code == 201, f"S1 Submit Failed: {response.status_code} - {response.text}"
+        
+        submission_json = response.json()
+        TestIntegration.student1_submission_id = submission_json.get('submissionId')
+        assert TestIntegration.student1_submission_id is not None, f"submissionId not found for S1: {submission_json}"
+        assert len(TestIntegration.student1_submission_id) == 24, "S1 submissionId is not 24 chars."
+        print(f"\nStudent1 Submission ID: {TestIntegration.student1_submission_id}")
+
+    def test_11_student2_submit_assignment(self):
+        if not (TestIntegration.student2_token and TestIntegration.assignment_id):
+            pytest.skip("Student2 token or assignment ID missing.")
+        url = f"{SUBMISSION_SERVICE_URL}/submissions"
+        headers = {'Authorization': f'Bearer {TestIntegration.student2_token}'}
+        files = {'attachments': ('student2_submission.txt', io.BytesIO(b"Student 2 submission content."), 'text/plain')}
+        data = {'assignmentId': TestIntegration.assignment_id, 'text': 'Submission by Student 2'}
+        response = requests.post(url, data=data, files=files, headers=headers)
+        assert response.status_code == 201, f"S2 Submit Failed: {response.status_code} - {response.text}"
+
+        submission_json = response.json()
+        TestIntegration.student2_submission_id = submission_json.get('submissionId')
+        assert TestIntegration.student2_submission_id is not None, f"submissionId not found for S2: {submission_json}"
+        assert len(TestIntegration.student2_submission_id) == 24, "S2 submissionId is not 24 chars."
+        print(f"Student2 Submission ID: {TestIntegration.student2_submission_id}")
+
+    def test_12_student3_submit_assignment(self):
+        if not (TestIntegration.student3_token and TestIntegration.assignment_id):
+            pytest.skip("Student3 token or assignment ID missing.")
+        url = f"{SUBMISSION_SERVICE_URL}/submissions"
+        headers = {'Authorization': f'Bearer {TestIntegration.student3_token}'}
+        files = {'attachments': ('student3_submission.txt', io.BytesIO(b"Student 3 submission content."), 'text/plain')}
+        data = {'assignmentId': TestIntegration.assignment_id, 'text': 'Submission by Student 3'}
+        response = requests.post(url, data=data, files=files, headers=headers)
+        assert response.status_code == 201, f"S3 Submit Failed: {response.status_code} - {response.text}"
+        
+        submission_json = response.json()
+        TestIntegration.student3_submission_id = submission_json.get('submissionId')
+        assert TestIntegration.student3_submission_id is not None, f"submissionId not found for S3: {submission_json}"
+        assert len(TestIntegration.student3_submission_id) == 24, "S3 submissionId is not 24 chars."
+        print(f"Student3 Submission ID: {TestIntegration.student3_submission_id}")
+
+
     # --- AUTH PROFILE AND LOGOUT ---
-    def test_10_student1_get_own_profile(self): 
+    def test_13_student1_get_own_profile(self): 
         if not (TestIntegration.student1_token and TestIntegration.student1_serial_number):
             pytest.skip("Student1 token or serial_number not available.")
 
@@ -247,7 +300,7 @@ class TestIntegration:
         assert profile.get('serialNumber') == TestIntegration.student1_serial_number
         print(f"Student1 Get Own Profile successful (serialNumber: {profile.get('serialNumber')}).")
 
-    def test_11_student1_update_own_profile(self): 
+    def test_14_student1_update_own_profile(self): 
         if not TestIntegration.student1_token: pytest.skip("Student1 token missing.")
         url = f"{AUTH_SERVICE_URL}/auth/users/me"
         headers = {'Authorization': f'Bearer {TestIntegration.student1_token}'}
@@ -257,7 +310,7 @@ class TestIntegration:
         assert response.json().get('residence') == update_data["residence"]
         print(f"\nStudent1 Update Own Profile successful.")
 
-    def test_12_teacher_get_all_students(self): 
+    def test_15_teacher_get_all_students(self): 
         if not TestIntegration.teacher_token: pytest.skip("Teacher token missing.")
         url = f"{AUTH_SERVICE_URL}/auth/users/students"
         headers = {'Authorization': f'Bearer {TestIntegration.teacher_token}'}
@@ -276,7 +329,7 @@ class TestIntegration:
         print(f"\nTeacher Get All Students successful, found {len(serials_in_list)} students.")
 
     # --- LOGOUT TESTS ---
-    def test_13_student1_logout(self): 
+    def test_16_student1_logout(self): 
         if not TestIntegration.student1_token: pytest.skip("Student1 token missing for logout.")
         url = f"{AUTH_SERVICE_URL}/auth/logout"
         headers = {'Authorization': f'Bearer {TestIntegration.student1_token}'}
@@ -288,7 +341,7 @@ class TestIntegration:
         TestIntegration.student1_token = None 
         print(f"\nStudent1 Logout successful.")
 
-    def test_14_student2_logout(self):
+    def test_17_student2_logout(self):
         if not TestIntegration.student2_token: pytest.skip("Student2 token missing for logout.")
         url = f"{AUTH_SERVICE_URL}/auth/logout"
         headers = {'Authorization': f'Bearer {TestIntegration.student2_token}'}
@@ -300,7 +353,7 @@ class TestIntegration:
         TestIntegration.student2_token = None
         print(f"Student2 Logout successful.")
 
-    def test_15_student3_logout(self):
+    def test_18_student3_logout(self):
         if not TestIntegration.student3_token: pytest.skip("Student3 token missing for logout.")
         url = f"{AUTH_SERVICE_URL}/auth/logout"
         headers = {'Authorization': f'Bearer {TestIntegration.student3_token}'}
@@ -312,7 +365,7 @@ class TestIntegration:
         TestIntegration.student3_token = None
         print(f"Student3 Logout successful.")
 
-    def test_16_teacher_logout(self):
+    def test_19_teacher_logout(self):
         if not TestIntegration.teacher_token: pytest.skip("Teacher token missing for logout.")
         url = f"{AUTH_SERVICE_URL}/auth/logout"
         headers = {'Authorization': f'Bearer {TestIntegration.teacher_token}'}
