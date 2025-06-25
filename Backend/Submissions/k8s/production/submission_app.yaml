@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: submission-app
-          image: gruppo3/submission:latest
+          image: gruppo3/submissions:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5002

@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: assignment-app
-          image: gruppo3/assignment:latest
+          image: gruppo3/assignments:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5001
