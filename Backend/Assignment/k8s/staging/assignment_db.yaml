@@ -1,4 +1,4 @@
-# assignment_mongodb_k8s.yaml
+# assignment_db.yaml
 
 apiVersion: v1
 kind: Secret
