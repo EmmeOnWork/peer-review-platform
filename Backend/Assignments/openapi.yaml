@@ -196,7 +196,7 @@ paths:
       operationId: handlers.assignment.health_check
       summary: Health check endpoint
       description: Check the health of the service.
-      security: [] # Aggiungi questa riga per disabilitare la sicurezza per questo endpoint
+      security: [] # Aggiungi questa riga per disabilitare la sicurezza per questo endpoint (forse da togliere)
       responses:
         '200':
           description: Service is healthy

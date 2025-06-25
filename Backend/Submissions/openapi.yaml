@@ -11,6 +11,7 @@ servers:
 paths:
   /health:
     get:
+      #security: []  # Endpoint pubblico (forse da dover togliere)
       operationId: handlers.submission_handler.health_check
       summary: Health check endpoint
       description: Checks the health of the service and its dependencies (DB, MinIO).
