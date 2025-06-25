@@ -6,7 +6,7 @@ package "Progetto" {
   package "Ingress" {
   }
   package "Backend" {
-    package "Authentication" {
+    package "Assignments" {
       package "tests" {
       }
       package "k8s" {
@@ -18,7 +18,7 @@ package "Progetto" {
       package "handlers" {
       }
     }
-    package "Assignment" {
+    package "Auth" {
       package "tests" {
       }
       package "k8s" {
@@ -30,10 +30,8 @@ package "Progetto" {
       package "handlers" {
       }
     }
-    package "Submission" {
+    package "Submissions" {
       package "tests" {
-        package "__pycache__" {
-        }
       }
       package "k8s" {
         package "production" {
@@ -42,10 +40,6 @@ package "Progetto" {
         }
       }
       package "handlers" {
-        package "__pycache__" {
-        }
-      }
-      package "__pycache__" {
       }
     }
   }
