@@ -134,7 +134,7 @@ pipeline {
         success {
             script {
                 echo "Pipeline completata con successo su ${env.BRANCH_NAME}"
-                echo "Pulizia risorse in eccesso..." //ci si assicura che non ci siano risorse residue dopo il deploy o dopo aver compiuto le azioni desiderate che possano occupare spazio
+                echo "Pulizia risorse in eccesso..." //ci si assicura che non ci siano risorse residue dopo il deploy o dopo aver compiuto le azioni desiderate
                 sh "microk8s kubectl delete namespace staging --wait=true || true"
                 sh "microk8s kubectl delete namespace pre-release --wait=true || true"
             }
