@@ -17,7 +17,7 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-EXPOSE 5002
+EXPOSE 5003
 
 
 CMD ["gunicorn", "app:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:5003", "--workers", "1"]
