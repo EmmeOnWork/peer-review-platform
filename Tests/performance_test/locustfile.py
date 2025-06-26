@@ -17,7 +17,7 @@ TEST_PASSWORD = "password123"
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# --- Shared State Management (IMPROVEMENT) ---
+# --- Shared State Management ---
 class SharedState:
     """Classe per contenere tutti i dati condivisi tra gli utenti Locust."""
     def __init__(self):
@@ -34,14 +34,14 @@ class SharedState:
 # Istanza unica e globale dello stato condiviso
 shared_state = SharedState()
 
-# --- Data Pools for User Generation (invariate) ---
+# --- Data Pools for User Generation ---
 FIRST_NAMES_POOL = ["Mario", "Luigi", "Giovanni", "Paolo", "Maria", "Anna", "Sofia", "Giulia"]
 LAST_NAMES_POOL = ["Rossi", "Ferrari", "Russo", "Bianchi", "Romano", "Gallo"]
 CITIES_POOL = ["Roma", "Milano", "Napoli", "Torino"]
 STREET_TYPES_POOL = ["Via", "Corso", "Piazza", "Viale"]
 STREET_NAMES_POOL = ["Garibaldi", "Mazzini", "Roma", "Dante"]
 
-# --- Helper Functions (with typo correction) ---
+# --- Helper Functions ---
 def generate_unique_email(base="user"):
     return f"{base}.{uuid.uuid4().hex[:8]}@locust.example.com"
 
@@ -79,62 +79,56 @@ class BaseLocustUser(HttpUser):
     user_role = None
     user_email = None
 
-# In BaseLocustUser
-def _register_or_login(self):
-    first_name = random.choice(FIRST_NAMES_POOL)
-    last_name = random.choice(LAST_NAMES_POOL)
-    residence = f"{random.choice(CITIES_POOL)}, {random.choice(STREET_TYPES_POOL)} {random.choice(STREET_NAMES_POOL)}, {random.randint(1, 200)}"
-    birth_date_obj = date(random.randint(1960, 2003), random.randint(1, 12), random.randint(1, 28))
-    fiscal_code = generate_improved_fiscal_code(first_name, last_name)
-    self.user_email = generate_unique_email(f"{first_name}.{last_name}".lower().replace(" ", ""))
-    reg_data = {
-        "name": first_name, "surname": last_name, "email": self.user_email, "password": TEST_PASSWORD,
-        "role": self.user_role, "fiscalCode": fiscal_code, "birthDate": birth_date_obj.isoformat(),
-        "residence": residence
-    }
+    # <<< INIZIO BLOCCO CORRETTO: Metodi indentati per essere parte della classe >>>
 
-    registration_successful = False # Aggiungiamo un flag
-    with self.client.post(f"{AUTH_API_PATH}register", json=reg_data, name=f"/{self.user_role}/register", catch_response=True) as response:
-        if response.ok: # Tipicamente 201 Created
-            self.serial_number = response.json().get('serialNumber')
-            if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
-                shared_state.available_student_serials.append(self.serial_number)
-            response.success()
-            registration_successful = True # Imposta il flag a True
-        
-        # Consideriamo un successo anche se l'utente esiste già, perché possiamo fare il login
-        elif response.status_code == 400 and ("already" in response.text.lower()):
-            response.success()
-            registration_successful = True # Imposta il flag a True
-        
-        else:
-            response.failure(f"Registration failed: {response.status_code} - {response.text}")
-            # NON impostiamo il flag, rimarrà False
+    def _register_or_login(self):
+        first_name = random.choice(FIRST_NAMES_POOL)
+        last_name = random.choice(LAST_NAMES_POOL)
+        residence = f"{random.choice(CITIES_POOL)}, {random.choice(STREET_TYPES_POOL)} {random.choice(STREET_NAMES_POOL)}, {random.randint(1, 200)}"
+        birth_date_obj = date(random.randint(1960, 2003), random.randint(1, 12), random.randint(1, 28))
+        fiscal_code = generate_improved_fiscal_code(first_name, last_name)
+        self.user_email = generate_unique_email(f"{first_name}.{last_name}".lower().replace(" ", ""))
+        reg_data = {
+            "name": first_name, "surname": last_name, "email": self.user_email, "password": TEST_PASSWORD,
+            "role": self.user_role, "fiscalCode": fiscal_code, "birthDate": birth_date_obj.isoformat(),
+            "residence": residence
+        }
 
-    # --- CONTROLLO CRUCIALE ---
-    # Se la registrazione non è andata a buon fine, esci subito.
-    if not registration_successful:
-        return False
+        registration_successful = False
+        with self.client.post(f"{AUTH_API_PATH}register", json=reg_data, name=f"/{self.user_role}/register", catch_response=True) as response:
+            if response.ok:
+                self.serial_number = response.json().get('serialNumber')
+                if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
+                    shared_state.available_student_serials.append(self.serial_number)
+                response.success()
+                registration_successful = True
+            elif response.status_code == 400 and ("already" in response.text.lower()):
+                response.success()
+                registration_successful = True
+            else:
+                response.failure(f"Registration failed: {response.status_code} - {response.text}")
 
-    # Il codice da qui in poi viene eseguito SOLO se la registrazione è OK.
-    login_data = {"email": self.user_email, "password": TEST_PASSWORD}
-    with self.client.post(f"{AUTH_API_PATH}login", json=login_data, name=f"/{self.user_role}/login", catch_response=True) as response:
-        if response.ok:
-            login_json = response.json()
-            self.token = login_json.get('access_token') or login_json.get('token')
-            user_data = login_json.get('user', {})
-            if not self.serial_number:
-                 self.serial_number = user_data.get('serialNumber')
-                 if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
-                     shared_state.available_student_serials.append(self.serial_number)
-            response.success()
-            return True # Login riuscito!
-        else:
-            response.failure(f"Login failed for {self.user_email}: {response.status_code} - {response.text}")
-            return False # Il login è fallito, l'utente si fermerà.
+        if not registration_successful:
+            return False
+
+        login_data = {"email": self.user_email, "password": TEST_PASSWORD}
+        with self.client.post(f"{AUTH_API_PATH}login", json=login_data, name=f"/{self.user_role}/login", catch_response=True) as response:
+            if response.ok:
+                login_json = response.json()
+                self.token = login_json.get('access_token') or login_json.get('token')
+                user_data = login_json.get('user', {})
+                if not self.serial_number:
+                     self.serial_number = user_data.get('serialNumber')
+                     if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
+                         shared_state.available_student_serials.append(self.serial_number)
+                response.success()
+                return True
+            else:
+                response.failure(f"Login failed for {self.user_email}: {response.status_code} - {response.text}")
+                return False
 
     def on_start(self):
-        self.client.verify = False  # Disabilita verifica SSL
+        self.client.verify = False
         if not self._register_or_login() or not self.token:
             self.stop(True)
 
@@ -147,6 +141,9 @@ def _register_or_login(self):
 
     def get_auth_headers(self):
         return {'Authorization': f'Bearer {self.token}'} if self.token else None
+    
+    # <<< FINE BLOCCO CORRETTO >>>
+
 
 # --- Teacher User Tasks ---
 class TeacherTasks(TaskSet):
@@ -306,6 +303,17 @@ class StudentUser(BaseLocustUser):
     user_role = "student"
     tasks = [StudentTasks]
     weight = 3
+    
+class FrontendUser(HttpUser):
+    wait_time = between(1, 3)
+
+    @task(10)
+    def health_check(self):
+        self.client.get("/health/", name="GET /health/", verify=False)
+
+    @task(5)
+    def load_homepage(self):
+        self.client.get("/", name="GET /", verify=False)
 
 # --- Event Hooks ---
 @events.test_start.add_listener
