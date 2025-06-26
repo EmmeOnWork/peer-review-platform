@@ -1,4 +1,4 @@
-# review_app.yaml
+# reviews_app.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
