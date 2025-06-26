@@ -93,9 +93,9 @@ spec:
 ---
 # --- INIZIO MODIFICHE PER MINIO STATEFULSET ---
 apiVersion: apps/v1
-kind: StatefulSet # <<<< CAMBIATO DA Deployment A StatefulSet
+kind: StatefulSet 
 metadata:
-  name: submission-minio-statefulset # <<<< NOME CAMBIATO per riflettere che è uno StatefulSet
+  name: submission-minio-statefulset
   labels:
     app: submission-minio
 spec:
@@ -149,7 +149,7 @@ spec:
         volumeMounts:
         - name: minio-data-storage # Nome del volume definito in volumeClaimTemplates
           mountPath: /data # MinIO userà questa directory per i suoi dati
-  volumeClaimTemplates: # <<<< AGGIUNTO volumeClaimTemplates
+  volumeClaimTemplates: 
   - metadata:
       name: minio-data-storage # Questo nome viene usato nel volumeMounts
     spec:
@@ -169,7 +169,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: submission-minio-headless-service # <<<< NUOVO SERVIZIO HEADLESS
+  name: submission-minio-headless-service 
   labels:
     app: submission-minio
 spec:
