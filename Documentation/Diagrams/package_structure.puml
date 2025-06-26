@@ -30,6 +30,18 @@ package "Progetto" {
       package "handlers" {
       }
     }
+    package "Reviews" {
+      package "tests" {
+      }
+      package "k8s" {
+        package "production" {
+        }
+        package "staging" {
+        }
+      }
+      package "handlers" {
+      }
+    }
     package "Submissions" {
       package "tests" {
       }
