@@ -16,28 +16,10 @@ pipeline {
         stage('Pulizia Workspace Iniziale') {
             steps {
                 deleteDir()
-                echo "Workspace pulito prima del checkout."
+                echo "Workspace pulito prima dell'orchestrazione."
             }
         }
 
-        // Il checkout viene eseguito subito dopo la pulizia.
-        stage('Checkout Codice Sorgente') {
-            steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "**"]],
-                    doGenerateSubmoduleConfigurations: false,
-                    extensions: [],
-                    userRemoteConfigs: [[
-                        url: "${env.GIT_REPO}",
-                        credentialsId: "${env.GIT_CREDENTIALS_ID}",
-                        refspec: '+refs/heads/*:refs/remotes/origin/*'
-                    ]]
-                ])
-                echo "Checkout completato. I file sono ora nel workspace."
-            }
-        }
-        
         stage('Orchestrator') {
             steps {
                 script {
