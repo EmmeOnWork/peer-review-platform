@@ -9,8 +9,8 @@ import locust_plugins
 import urllib3
 
 AUTH_API_PATH = "/auth/"
-ASSIGNMENT_API_PATH = "/assignments/"
-SUBMISSION_API_PATH = "/submissions/"
+ASSIGNMENT_API_PATH = "/assignments"
+SUBMISSION_API_PATH = "/submissions"
 REVIEW_API_PATH = "/reviews/"
 
 TEST_PASSWORD = "password123"
