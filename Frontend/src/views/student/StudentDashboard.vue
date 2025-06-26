@@ -47,7 +47,7 @@
         <router-link to="/student/submissions" class="card-button">View Submissions</router-link>
       </div>
 
-      <!-- Rimuovere completamente questa sezione:
+      <!-- Peer Reviews Card -->
       <div class="dashboard-card reviews-card">
         <div class="card-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -60,7 +60,6 @@
         <p class="card-description">Review classmates' work and receive feedback</p>
         <router-link to="/student/reviews" class="card-button">Start Reviews</router-link>
       </div>
-      -->
     </div>
 
     <div class="logout-section">

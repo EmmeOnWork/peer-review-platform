@@ -16,5 +16,8 @@ spec:
           value: "http://assignment-app-service:5001"
         - name: SUBMISSION_SERVICE_URL
           value: "http://submission-app-service:5002"
+        - name: REVIEW_SERVICE_URL
+          value: "http://review-app-service:5003"
+
 
       restartPolicy: Never

@@ -108,19 +108,18 @@ const routes = [
     meta: { requiresAuth: true }
   },
 
-  // Rimuovere queste due rotte:
-  // {
-  //   path: '/student/reviews',
-  //   name: 'StudentPeerReviews',
-  //   component: () => import('../views/student/PeerReviewsPage.vue'),
-  //   meta: { requiresAuth: true, role: 'student' }
-  // },
-  // {
-  //   path: '/student/reviews/:reviewId',
-  //   name: 'PeerReviewForm',
-  //   component: () => import('../views/student/PeerReviewFormPage.vue'),
-  //   meta: { requiresAuth: true, role: 'student' }
-  // },
+  {
+    path: '/student/reviews',
+    name: 'StudentPeerReviews',
+    component: () => import('../views/student/PeerReviewsPage.vue'),
+    meta: { requiresAuth: true, role: 'student' }
+  },
+  {
+    path: '/student/reviews/:reviewId',
+    name: 'PeerReviewForm',
+    component: () => import('../views/student/PeerReviewFormPage.vue'),
+    meta: { requiresAuth: true, role: 'student' }
+  },
 
   // --- Not Found ---
   {

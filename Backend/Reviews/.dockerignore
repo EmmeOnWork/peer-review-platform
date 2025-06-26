@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.log
+# Pytest cache
+.pytest_cache/
+
+# Git
+.git
+.gitignore
+
+# Dockerfile e config
+.dockerignore
+
+# IDE/editor folders
+.vscode/
+.idea/
+
+# Local files
+*.log
+*.md
+
+# OS-generated files
+.DS_Store
+Thumbs.db

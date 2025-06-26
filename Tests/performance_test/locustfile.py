@@ -8,32 +8,15 @@ from locust import HttpUser, TaskSet, task, between, events
 import locust_plugins
 import urllib3
 
-# Questi path devono corrispondere ESATTAMENTE ai blocchi `location` in nginx.conf
 AUTH_API_PATH = "/auth/"
 ASSIGNMENT_API_PATH = "/assignments/"
 SUBMISSION_API_PATH = "/submissions/"
-#REVIEW_API_PATH = "/reviews/"
+REVIEW_API_PATH = "/reviews/"
 
 TEST_PASSWORD = "password123"
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
-
-class FrontendUser(HttpUser):
-    wait_time = between(1, 3)
-
-    @task(10)  # Maggiore peso per bombardare /health
-    def health_check(self):
-        self.client.get("/health/", name="GET /health/", verify=False)
-
-    @task(5)
-    def load_homepage(self):
-        self.client.get("/", name="GET /", verify=False)
-
-# Puoi aggiungere altri task per simulare navigazione su altre pagine della SPA
-
-# --- Aggiungere qui la logica per testare i servizi backend ---
 # --- Shared State Management (IMPROVEMENT) ---
 class SharedState:
     """Classe per contenere tutti i dati condivisi tra gli utenti Locust."""
@@ -96,46 +79,59 @@ class BaseLocustUser(HttpUser):
     user_role = None
     user_email = None
 
-    def _register_or_login(self):
-        first_name = random.choice(FIRST_NAMES_POOL)
-        last_name = random.choice(LAST_NAMES_POOL)
-        residence = f"{random.choice(CITIES_POOL)}, {random.choice(STREET_TYPES_POOL)} {random.choice(STREET_NAMES_POOL)}, {random.randint(1, 200)}"
-        birth_date_obj = date(random.randint(1960, 2003), random.randint(1, 12), random.randint(1, 28))
-        fiscal_code = generate_improved_fiscal_code(first_name, last_name)
-        self.user_email = generate_unique_email(f"{first_name}.{last_name}".lower().replace(" ", ""))
-        reg_data = {
-            "name": first_name, "surname": last_name, "email": self.user_email, "password": TEST_PASSWORD,
-            "role": self.user_role, "fiscalCode": fiscal_code, "birthDate": birth_date_obj.isoformat(),
-            "residence": residence
-        }
+# In BaseLocustUser
+def _register_or_login(self):
+    first_name = random.choice(FIRST_NAMES_POOL)
+    last_name = random.choice(LAST_NAMES_POOL)
+    residence = f"{random.choice(CITIES_POOL)}, {random.choice(STREET_TYPES_POOL)} {random.choice(STREET_NAMES_POOL)}, {random.randint(1, 200)}"
+    birth_date_obj = date(random.randint(1960, 2003), random.randint(1, 12), random.randint(1, 28))
+    fiscal_code = generate_improved_fiscal_code(first_name, last_name)
+    self.user_email = generate_unique_email(f"{first_name}.{last_name}".lower().replace(" ", ""))
+    reg_data = {
+        "name": first_name, "surname": last_name, "email": self.user_email, "password": TEST_PASSWORD,
+        "role": self.user_role, "fiscalCode": fiscal_code, "birthDate": birth_date_obj.isoformat(),
+        "residence": residence
+    }
 
-        with self.client.post(f"{AUTH_API_PATH}register", json=reg_data, name=f"/{self.user_role}/register", catch_response=True) as response:
-            if response.ok:
-                self.serial_number = response.json().get('serialNumber')
-                if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
-                    shared_state.available_student_serials.append(self.serial_number)
-                response.success()
-            elif response.status_code == 400 and ("already" in response.text.lower()):
-                response.success() # Consider it a success, we can now login
-            else:
-                response.failure(f"Registration failed: {response.status_code} - {response.text}")
-                return False
+    registration_successful = False # Aggiungiamo un flag
+    with self.client.post(f"{AUTH_API_PATH}register", json=reg_data, name=f"/{self.user_role}/register", catch_response=True) as response:
+        if response.ok: # Tipicamente 201 Created
+            self.serial_number = response.json().get('serialNumber')
+            if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
+                shared_state.available_student_serials.append(self.serial_number)
+            response.success()
+            registration_successful = True # Imposta il flag a True
+        
+        # Consideriamo un successo anche se l'utente esiste già, perché possiamo fare il login
+        elif response.status_code == 400 and ("already" in response.text.lower()):
+            response.success()
+            registration_successful = True # Imposta il flag a True
+        
+        else:
+            response.failure(f"Registration failed: {response.status_code} - {response.text}")
+            # NON impostiamo il flag, rimarrà False
 
-        login_data = {"email": self.user_email, "password": TEST_PASSWORD}
-        with self.client.post(f"{AUTH_API_PATH}login", json=login_data, name=f"/{self.user_role}/login", catch_response=True) as response:
-            if response.ok:
-                login_json = response.json()
-                self.token = login_json.get('access_token') or login_json.get('token')
-                user_data = login_json.get('user', {})
-                if not self.serial_number:
-                     self.serial_number = user_data.get('serialNumber')
-                     if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
-                         shared_state.available_student_serials.append(self.serial_number)
-                response.success()
-                return True
-            else:
-                response.failure(f"Login failed for {self.user_email}: {response.status_code} - {response.text}")
-                return False
+    # --- CONTROLLO CRUCIALE ---
+    # Se la registrazione non è andata a buon fine, esci subito.
+    if not registration_successful:
+        return False
+
+    # Il codice da qui in poi viene eseguito SOLO se la registrazione è OK.
+    login_data = {"email": self.user_email, "password": TEST_PASSWORD}
+    with self.client.post(f"{AUTH_API_PATH}login", json=login_data, name=f"/{self.user_role}/login", catch_response=True) as response:
+        if response.ok:
+            login_json = response.json()
+            self.token = login_json.get('access_token') or login_json.get('token')
+            user_data = login_json.get('user', {})
+            if not self.serial_number:
+                 self.serial_number = user_data.get('serialNumber')
+                 if self.user_role == "student" and self.serial_number and self.serial_number not in shared_state.available_student_serials:
+                     shared_state.available_student_serials.append(self.serial_number)
+            response.success()
+            return True # Login riuscito!
+        else:
+            response.failure(f"Login failed for {self.user_email}: {response.status_code} - {response.text}")
+            return False # Il login è fallito, l'utente si fermerà.
 
     def on_start(self):
         self.client.verify = False  # Disabilita verifica SSL
@@ -181,20 +177,20 @@ class TeacherTasks(TaskSet):
                 else: response.failure("Create assignment OK but no ID in response")
             else: response.failure(f"Create assignment failed: {response.status_code} - {response.text}")
 
-    # @task(5)
-    # def auto_assign_peer_reviews(self):
-    #     headers = self.user.get_auth_headers()
-    #     if not headers: return
-    #     if not shared_state.assignment_ids: return
+    @task(5)
+    def auto_assign_peer_reviews(self):
+        headers = self.user.get_auth_headers()
+        if not headers: return
+        if not shared_state.assignment_ids: return
 
-    #     assignment_id_to_review = random.choice(shared_state.assignment_ids)
-    #     submissions_for_assignment = shared_state.submission_ids_for_review.get(assignment_id_to_review, [])
-    #     if len(submissions_for_assignment) < 4: return
+        assignment_id_to_review = random.choice(shared_state.assignment_ids)
+        submissions_for_assignment = shared_state.submission_ids_for_review.get(assignment_id_to_review, [])
+        if len(submissions_for_assignment) < 4: return
 
-    #     with self.user.client.post(f"{REVIEW_API_PATH}assign/auto", json={"assignmentId": assignment_id_to_review, "minReviews": 3}, headers=headers, name="/teacher/auto_assign_reviews", catch_response=True) as response:
-    #         if response.ok: response.success()
-    #         elif response.status_code in [400, 404]: response.success() # Non-critical failure
-    #         else: response.failure(f"Auto-assign reviews failed: {response.status_code} - {response.text}")
+        with self.user.client.post(f"{REVIEW_API_PATH}assign/auto", json={"assignmentId": assignment_id_to_review, "minReviews": 3}, headers=headers, name="/teacher/auto_assign_reviews", catch_response=True) as response:
+            if response.ok: response.success()
+            elif response.status_code in [400, 404]: response.success() # Non-critical failure
+            else: response.failure(f"Auto-assign reviews failed: {response.status_code} - {response.text}")
 
     @task(2)
     def get_own_profile(self):
@@ -239,48 +235,48 @@ class StudentTasks(TaskSet):
             elif response.status_code in [403, 404]: response.success()
             else: response.failure(f"Submit assignment failed: {response.status_code} - {response.text}")
 
-    # @task(5)
-    # def list_and_process_assigned_reviews(self):
-    #     headers = self.user.get_auth_headers()
-    #     if not headers or not self.user.serial_number: return
+    @task(5)
+    def list_and_process_assigned_reviews(self):
+        headers = self.user.get_auth_headers()
+        if not headers or not self.user.serial_number: return
 
-    #     # 1. Get list of assigned reviews
-    #     review_to_process_id = None
-    #     with self.user.client.get(f"{REVIEW_API_PATH}student/{self.user.serial_number}", headers=headers, name="/student/list_reviews", catch_response=True) as response:
-    #         if not response.ok:
-    #             response.failure(f"List student reviews failed: {response.status_code} - {response.text}")
-    #             return
+        # 1. Get list of assigned reviews
+        review_to_process_id = None
+        with self.user.client.get(f"{REVIEW_API_PATH}student/{self.user.serial_number}", headers=headers, name="/student/list_reviews", catch_response=True) as response:
+            if not response.ok:
+                response.failure(f"List student reviews failed: {response.status_code} - {response.text}")
+                return
             
-    #         assigned_reviews = response.json()
-    #         if isinstance(assigned_reviews, list) and assigned_reviews:
-    #             unsubmitted = [r for r in assigned_reviews if not r.get('submittedAt')]
-    #             if unsubmitted:
-    #                 review_to_process_id = random.choice(unsubmitted).get('reviewId')
-    #         response.success()
+            assigned_reviews = response.json()
+            if isinstance(assigned_reviews, list) and assigned_reviews:
+                unsubmitted = [r for r in assigned_reviews if not r.get('submittedAt')]
+                if unsubmitted:
+                    review_to_process_id = random.choice(unsubmitted).get('reviewId')
+            response.success()
         
-    #     if not review_to_process_id: return
+        if not review_to_process_id: return
 
-    #     # 2. Get specific review details to fetch the rubric
-    #     rubric = None
-    #     with self.user.client.get(f"{REVIEW_API_PATH}{review_to_process_id}", headers=headers, name="/student/get_specific_review", catch_response=True) as response:
-    #         if not response.ok:
-    #             response.failure(f"Get review {review_to_process_id} failed: {response.status_code}")
-    #             return
-    #         rubric = response.json().get("assignment", {}).get("rubric")
-    #         response.success()
+        # 2. Get specific review details to fetch the rubric
+        rubric = None
+        with self.user.client.get(f"{REVIEW_API_PATH}{review_to_process_id}", headers=headers, name="/student/get_specific_review", catch_response=True) as response:
+            if not response.ok:
+                response.failure(f"Get review {review_to_process_id} failed: {response.status_code}")
+                return
+            rubric = response.json().get("assignment", {}).get("rubric")
+            response.success()
 
-    #     if not rubric: return
+        if not rubric: return
 
-    #     # 3. Submit the review
-    #     evaluation_payload = []
-    #     for criterion in rubric:
-    #         max_score = criterion.get("maxScore", 10)
-    #         score = random.randint(1, max_score)
-    #         evaluation_payload.append({"criterion": criterion.get("criterion"), "score": score, "feedback": "Auto-generated feedback."})
+        # 3. Submit the review
+        evaluation_payload = []
+        for criterion in rubric:
+            max_score = criterion.get("maxScore", 10)
+            score = random.randint(1, max_score)
+            evaluation_payload.append({"criterion": criterion.get("criterion"), "score": score, "feedback": "Auto-generated feedback."})
         
-    #     with self.user.client.put(f"{REVIEW_API_PATH}{review_to_process_id}", json={"evaluation": evaluation_payload}, headers=headers, name="/student/submit_review", catch_response=True) as response:
-    #         if response.ok: response.success()
-    #         else: response.failure(f"Submit review {review_to_process_id} failed: {response.status_code}")
+        with self.user.client.put(f"{REVIEW_API_PATH}{review_to_process_id}", json={"evaluation": evaluation_payload}, headers=headers, name="/student/submit_review", catch_response=True) as response:
+            if response.ok: response.success()
+            else: response.failure(f"Submit review {review_to_process_id} failed: {response.status_code}")
 
     @task(2)
     def get_own_profile(self):

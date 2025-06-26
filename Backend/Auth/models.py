@@ -10,7 +10,7 @@ class User(Base):
     serial_number = Column(String(10), primary_key=True, index=True)
     name = Column(String, nullable=False)  
     surname = Column(String, nullable=False) 
-    email = Column(String, unique=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)    
     hashed_password = Column(String, nullable=False)
     role = Column(String, nullable=False)
     fiscal_code = Column(String, nullable=False)

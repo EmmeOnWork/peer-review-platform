@@ -7,13 +7,24 @@ from .blacklist import blacklisted_tokens, is_token_blacklisted
 from connexion import request 
 
 # 1. Login user
+# in handlers/auth_handler.py
 def login_user(body, request=None):
     db = next(get_db())
     login_data = LoginRequest(**body)
     user = db.query(User).filter(User.email == login_data.email).first()
-    if not user or not verify_password(login_data.password, user.hashed_password):
+
+    # 1. PRIMO CONTROLLO: l'utente esiste?
+    # Questa è una "guard clause". Se l'utente non esiste, esci subito.
+    if not user:
         return {"error": "Invalid credentials"}, 401
 
+    # 2. SECONDO CONTROLLO: la password è corretta?
+    # Questa riga viene eseguita SOLO SE il primo controllo è stato superato,
+    # quindi siamo SICURI che 'user' non è None.
+    if not verify_password(login_data.password, user.hashed_password):
+        return {"error": "Invalid credentials"}, 401
+
+    # Se arriviamo qui, l'utente esiste e la password è corretta.
     token = generate_jwt_token(user)
     user_profile = UserProfileFull(
         name=user.name, 
@@ -25,7 +36,7 @@ def login_user(body, request=None):
         birthDate=user.birth_date,
         residence=user.residence
     )
-    return {"token": token, "user": user_profile.model_dump()}, 200 
+    return {"token": token, "user": user_profile.model_dump()}, 200
 
 # 2. Register user
 def register_user(body, request=None):
