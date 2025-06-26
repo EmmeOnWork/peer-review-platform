@@ -141,11 +141,11 @@ spec:
         # Per una singola istanza, questo è sufficiente.
         resources: # Aggiungi resources se vuoi
             requests:
-              cpu: "40m"
-              memory: "64Mi"
-            limits:
-              cpu: "80m"
+              cpu: "25m"
               memory: "128Mi"
+            limits:
+              cpu: "75m"
+              memory: "256Mi"
         volumeMounts:
         - name: minio-data-storage # Nome del volume definito in volumeClaimTemplates
           mountPath: /data # MinIO userà questa directory per i suoi dati
