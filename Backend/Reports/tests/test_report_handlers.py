@@ -47,7 +47,7 @@ def test_get_teacher_reports_by_serial_success(app_instance):
             mock_get.side_effect = [
                 MagicMock(status_code=200, json=lambda: assignments_data),  # Assignments
                 MagicMock(status_code=200, json=lambda: submissions_data),  # Submissions
-                MagicMock(status_code=200, json=lambda: reviews_data),      # Review
+                MagicMock(status_code=200, json=lambda: reviews_data),      # Reviews
             ]
             result, status = report.get_teacher_reports_by_serial("1234567890")
     
