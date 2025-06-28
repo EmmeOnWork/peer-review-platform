@@ -69,10 +69,10 @@ spec:
               value: "http://authentication-app-service:5000"
           resources:
             requests:
-              cpu: "63m"
+              cpu: "150m"
               memory: "256Mi"
             limits:
-              cpu: "125m"
+              cpu: "300m"
               memory: "512Mi"
           
           # Ora che usiamo Init Containers, possiamo usare ritardi più bassi e ragionevoli.

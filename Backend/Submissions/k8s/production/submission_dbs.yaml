@@ -59,10 +59,10 @@ spec:
               value: "submissiondb"
           resources:
             requests:
-              cpu: "125m"
+              cpu: "75m"
               memory: "768Mi"
             limits:
-              cpu: "250m"
+              cpu: "150m"
               memory: "1229Mi"
           volumeMounts:
             - name: mongo-persistent-storage # Nome del volume definito in volumeClaimTemplates
@@ -142,10 +142,10 @@ spec:
         resources: # Aggiungi resources se vuoi
             requests:
               cpu: "25m"
-              memory: "128Mi"
+              memory: "256Mi"
             limits:
               cpu: "75m"
-              memory: "256Mi"
+              memory: "512Mi"
         volumeMounts:
         - name: minio-data-storage # Nome del volume definito in volumeClaimTemplates
           mountPath: /data # MinIO userà questa directory per i suoi dati

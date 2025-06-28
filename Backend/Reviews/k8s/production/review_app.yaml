@@ -44,10 +44,10 @@ spec:
               value: "http://submission-app-service:5002"
           resources:
             requests:
-              cpu: "63m"
+              cpu: "150m"
               memory: "256Mi"
             limits:
-              cpu: "125m"
+              cpu: "300m"
               memory: "512Mi"
           livenessProbe:
             httpGet:

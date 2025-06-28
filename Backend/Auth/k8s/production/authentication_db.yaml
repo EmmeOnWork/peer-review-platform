@@ -52,10 +52,10 @@ spec:
                   key: POSTGRES_DB
           resources:
             requests:
-              cpu: "125m"
+              cpu: "75m"
               memory: "768Mi"
             limits:
-              cpu: "250m"
+              cpu: "150m"
               memory: "1229Mi"
           volumeMounts:
             - name: postgres-storage
