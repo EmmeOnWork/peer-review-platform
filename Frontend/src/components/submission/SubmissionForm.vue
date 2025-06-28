@@ -3,7 +3,7 @@
     <!-- Loading -->
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>
-      <span>Caricamento...</span>
+      <span>Loading...</span>
     </div>
 
     <!-- Error -->
@@ -15,12 +15,9 @@
     <!-- Success -->
     <div v-if="success" class="success">
       <i class="fas fa-check-circle"></i>
-      <h3>Submission Inviata!</h3>
+      <h3>Submission Sent!</h3>
       <p>{{ success }}</p>
-      <button @click="goToSubmissions" class="success-btn">
-        <i class="fas fa-list"></i>
-        Vedi le mie submission
-      </button>
+
     </div>
     
     <!-- Form -->
@@ -28,13 +25,13 @@
       <!-- Text Area -->
       <div class="form-card">
         <div class="card-header">
-          <h3><i class="fas fa-edit"></i> Testo della Submission</h3>
+          <h3><i class="fas fa-edit"></i>Submission Text</h3>
         </div>
         <div class="card-content">
           <textarea 
             v-model="formData.text" 
             rows="6" 
-            placeholder="Inserisci qui il testo della tua submission..."
+            placeholder="Enter your submission text here..."
             class="text-input"
           ></textarea>
         </div>
@@ -43,7 +40,7 @@
       <!-- File Upload -->
       <div class="form-card">
         <div class="card-header">
-          <h3><i class="fas fa-paperclip"></i> Allegati</h3>
+          <h3><i class="fas fa-paperclip"></i> Attachments</h3>
           <span class="file-limit">Max 5 file (PDF, ZIP, TXT, DOCX)</span>
         </div>
         <div class="card-content">
@@ -58,8 +55,8 @@
             >
             <label for="attachments" class="file-label">
               <i class="fas fa-cloud-upload-alt"></i>
-              <span>Scegli file o trascina qui</span>
-              <small>Dimensione massima: 10MB per file</small>
+              <span>Choose file or drag here</span>
+              <small>Maximum size: 10MB per file</small>
             </label>
           </div>
 
@@ -86,11 +83,11 @@
       <div class="form-actions">
         <button type="button" @click="goBack" class="cancel-btn">
           <i class="fas fa-times"></i>
-          Annulla
+          Cancel
         </button>
         <button type="submit" class="submit-btn" :disabled="isSubmitting">
           <i class="fas" :class="isSubmitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'"></i>
-          {{ isSubmitting ? 'Invio...' : 'Invia Submission' }}
+          {{ isSubmitting ? 'Send...' : 'Send Submission' }}
         </button>
       </div>
     </form>
@@ -149,12 +146,12 @@ export default {
         const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
         
         if (!isValidType) {
-          alert(`File ${file.name} non è di un tipo supportato.`);
+          alert(`File ${file.name} is not a supported type.`);
           return false;
         }
         
         if (!isValidSize) {
-          alert(`File ${file.name} è troppo grande (max 10MB).`);
+          alert(`File ${file.name} is too large (max 10MB).`);
           return false;
         }
         
@@ -207,15 +204,15 @@ export default {
           }
         });
         
-        success.value = 'La tua submission è stata inviata con successo!';
+        success.value = 'Your submission has been successfully submitted!';
       } catch (err) {
         console.error('Error submitting:', err);
         if (err.response?.status === 400) {
-          error.value = err.response.data.message || 'Dati non validi.';
+          error.value = err.response.data.message || 'Invalid data.';
         } else if (err.response?.status === 401) {
-          error.value = 'Non autorizzato. Effettua nuovamente il login.';
+          error.value = 'Unauthorized. Please log in again.';
         } else {
-          error.value = 'Errore durante l\'invio. Riprova più tardi.';
+          error.value = 'Error during submission. Please try again later.';
         }
       } finally {
         isSubmitting.value = false;
@@ -542,15 +539,3 @@ export default {
 }
 </style>
 
-const goToSubmissions = () => {
-  router.push('/student/submissions');
-};
-
-const goBack = () => {
-  router.go(-1);
-};
-
-return {
-  formData, selectedFiles, loading, error, success, isSubmitting,
-  handleFileChange, removeFile, formatFileSize, submitForm
-};

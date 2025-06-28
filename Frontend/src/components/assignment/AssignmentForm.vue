@@ -136,7 +136,7 @@ const form = ref({
   students: [] // This will now store selected student objects or IDs
 });
 
-// const studentsInput = ref(''); // RIMOSSO: Variabile non utilizzata
+// const studentsInput = ref(''); // REMOVED: Unused variable
 const availableStudents = ref([]);
 const selectedStudentSerials = ref([]);
 const errorMessage = ref('');
@@ -238,7 +238,7 @@ watch(() => props.assignment, (newVal) => {
     // For now, we assume `fetchAvailableStudents` on mount or empty search will cover this.
   } else {
     isEditMode.value = false;
-    resetForm(); // Ora questa chiamata non darà errore
+    resetForm(); // Now this call will not throw an error
   }
   // When assignment changes, if not editing, clear search and load all students
   if (!isEditMode.value) {
@@ -292,7 +292,7 @@ async function handleSubmit() {
     } else {
       await axios.post(API_URL, payload, { headers: getAuthHeaders() });
       successMessage.value = 'Assignment created successfully!';
-      resetForm(); // Ora questa chiamata non darà errore
+      resetForm(); // Now this call will not throw an error
       studentSearchTerm.value = ''; // Clear search term on successful creation
       fetchAvailableStudents(); // Reload all students
     }

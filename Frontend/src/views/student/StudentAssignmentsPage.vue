@@ -3,7 +3,7 @@
     <div class="header">
       <div class="header-content">
         <h1><i class="fas fa-tasks"></i> My Assignments</h1>
-        <p>Visualizza e gestisci i tuoi assignment</p>
+        <p>View and manage your assignments</p>
       </div>
     </div>
     <AssignmentListStudent />

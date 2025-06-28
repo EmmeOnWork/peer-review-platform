@@ -3,7 +3,7 @@
     <!-- Loading -->
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>
-      <span>Caricamento assignment...</span>
+      <span>Loading assignments...</span>
     </div>
 
     <!-- Error -->
@@ -15,8 +15,8 @@
     <!-- Empty State -->
     <div v-if="!loading && !error && assignments.length === 0" class="empty">
       <i class="fas fa-clipboard-list"></i>
-      <h3>Nessun Assignment</h3>
-      <p>Non ci sono assignment disponibili al momento.</p>
+      <h3>No Assignments</h3>
+      <p>There are no assignments available at the moment.</p>
     </div>
 
     <!-- Assignments Grid -->
@@ -46,7 +46,7 @@
           <!-- Rubric Preview -->
           <div v-if="assignment.rubric?.length" class="rubric-preview">
             <i class="fas fa-list-check"></i>
-            <span>{{ assignment.rubric.length }} criteri di valutazione</span>
+            <span>{{ assignment.rubric.length }} evaluation criteria</span>
           </div>
         </div>
 
@@ -64,7 +64,7 @@
     <div v-if="hasMoreItems" class="load-more">
       <button @click="showMore" class="load-more-btn">
         <i class="fas fa-chevron-down"></i>
-        Mostra altri ({{ remainingItems }})
+        Show more ({{ remainingItems }})
       </button>
     </div>
   </div>
@@ -104,7 +104,7 @@ export default {
 
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
-      return new Date(dateString).toLocaleDateString('it-IT', {
+      return new Date(dateString).toLocaleDateString('en-US', {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -138,7 +138,7 @@ export default {
         assignments.value = response.data;
       } catch (err) {
         console.error('Error fetching assignments:', err);
-        error.value = 'Errore nel caricamento degli assignment.';
+        error.value = 'Error loading assignments.';
       } finally {
         loading.value = false;
       }

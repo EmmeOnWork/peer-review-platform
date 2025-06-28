@@ -23,7 +23,7 @@ def create_app():
     # Applica ProxyFix all'applicazione Flask
     # NUM_PROXIES è il numero di reverse proxy davanti all app Flask
     # Ingress K8s + Nginx Frontend che fa da proxy = 2 proxies
-    NUM_PROXIES = 2 
+    NUM_PROXIES = 1
     flask_app.wsgi_app = ProxyFix(
         flask_app.wsgi_app, 
         x_for=NUM_PROXIES, 

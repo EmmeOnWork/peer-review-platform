@@ -1,0 +1,319 @@
+openapi: 3.0.3
+info:
+  title: Report Service API
+  description: API for generating reports on evaluations and peer review feedback.
+  version: 1.0.0
+
+servers:
+  - url: http://report-app-service:5004
+
+security:
+  - BearerAuth: []
+
+paths:
+  /reports/teacher/{serialNumber}:
+    get:
+      operationId: handlers.report.get_teacher_reports_by_serial
+      summary: List of all assignment reports for a specific teacher
+      parameters:
+        - name: serialNumber
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{10}$'
+            maxLength: 10
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of reports for all assignments created by the specified teacher
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeacherReport'
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+
+  /reports/student/{serialNumber}/assignment/{assignmentId}:
+    get:
+      operationId: handlers.report.get_student_report
+
+      summary: Detailed report for a student submission (accessible by both student and teacher)
+      parameters:
+        - name: serialNumber
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{10}$'
+            maxLength: 10
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            maxLength: 64
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Personal evaluation report for the student on the specified assignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentReport'
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+
+  /reports/student:
+    get:
+      operationId: handlers.report.get_student_reports  # <-- ADD THIS LINE
+      summary: List of all submission reports for the authenticated student
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of reports for all submissions made by the authenticated student
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentReport'
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+
+  /reports/student/{serialNumber}/submissions/{submissionId}:
+    get:
+      operationId: handlers.report.get_student_submission_reviews
+      summary: Get all reviews for a specific student submission (without reviewer identity)
+      parameters:
+        - name: serialNumber
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{10}$'
+            maxLength: 10
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9]+$'
+            maxLength: 64
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of anonymous reviews for the specified submission
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [submissionId, assignmentId, title, reviews, averageScore]
+                additionalProperties: false
+                properties:
+                  submissionId:
+                    type: string
+                    pattern: '^[a-zA-Z0-9]+$'
+                    maxLength: 64
+                  assignmentId:
+                    type: string
+                    pattern: '^[a-zA-Z0-9]+$'
+                    maxLength: 64
+                  title:
+                    type: string
+                    maxLength: 255
+                  reviews:
+                    type: array
+                    description: All reviews received (without reviewer identity)
+                    items:
+                      $ref: '#/components/schemas/AnonymousReviewDetail'
+                  averageScore:
+                    type: number
+                    format: float
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not Found }
+        '429': { description: Too Many Requests }
+        'default': { description: Unexpected error }
+
+  /health:
+    get:
+      operationId: handlers.report.health_check
+      summary: Health check endpoint
+      description: Check the health of the service.
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string 
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      x-bearerInfoFunc: handlers.utils.decode_token
+
+  schemas:
+    TeacherReport:
+      type: object
+      required: [assignmentId, title, averageScores, submissions]
+      additionalProperties: false
+      properties:
+        assignmentId:
+          type: string
+          pattern: '^[a-zA-Z0-9]+$'
+          maxLength: 64
+        title:
+          type: string
+          maxLength: 255
+        averageScores:
+          type: array
+          description: Average scores received for each criterion
+          items:
+            type: object
+            required: [criterion, averageScore]
+            additionalProperties: false
+            properties:
+              criterion:
+                type: string
+                maxLength: 255
+              averageScore:
+                type: number
+                format: float
+        submissions:
+          type: array
+          items:
+            type: object
+            required: [serialNumber, submissionId, averageScores, peerReviews]
+            additionalProperties: false
+            properties:
+              serialNumber:
+                type: string
+                pattern: '^\d{10}$'
+                maxLength: 10
+              submissionId:
+                type: string
+                pattern: '^[a-zA-Z0-9]+$'
+                maxLength: 64
+              averageScores:
+                type: array
+                description: Average scores received for each criterion for this submission
+                items:
+                  type: object
+                  required: [criterion, averageScore]
+                  additionalProperties: false
+                  properties:
+                    criterion:
+                      type: string
+                      maxLength: 255
+                    averageScore:
+                      type: number
+                      format: float
+              peerReviews:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewDetail'
+
+    StudentReport:
+      type: object
+      required: [assignmentId, title, submissionId, peerReviews, averageScore]
+      additionalProperties: false
+      properties:
+        assignmentId:
+          type: string
+          pattern: '^[a-zA-Z0-9]+$'
+          maxLength: 64
+        title:
+          type: string
+          maxLength: 255
+        submissionId:
+          type: string
+          pattern: '^[a-zA-Z0-9]+$'
+          maxLength: 64
+        peerReviews:
+          type: array
+          description: All reviews received by the student
+          items:
+            $ref: '#/components/schemas/ReviewDetail'
+        averageScore:
+          type: number
+          format: float
+
+    
+    AnonymousReviewDetail:
+      type: object
+      required: [evaluation, reviewedAt]
+      additionalProperties: false
+      properties:
+        evaluation:
+          type: array
+          items:
+            type: object
+            required: [criterion, score, feedback]
+            additionalProperties: false
+            properties:
+              criterion:
+                type: string
+                maxLength: 255
+              score:
+                type: integer
+                minimum: 0
+                maximum: 100
+              feedback:
+                type: string
+                maxLength: 1000
+        reviewedAt:
+          type: string
+          format: date-time
+
+    ReviewDetail:
+      type: object
+      required: [reviewerSerialNumber, evaluation, reviewedAt]
+      additionalProperties: false
+      properties:
+        reviewerSerialNumber:
+          type: string
+          pattern: '^\d{10}$'
+          maxLength: 10
+        evaluation:
+          type: array
+          items:
+            type: object
+            required: [criterion, score, feedback]
+            additionalProperties: false
+            properties:
+              criterion:
+                type: string
+                maxLength: 255
+              score:
+                type: integer
+                minimum: 0
+                maximum: 100
+              feedback:
+                type: string
+                maxLength: 1000
+        reviewedAt:
+          type: string
+          format: date-time

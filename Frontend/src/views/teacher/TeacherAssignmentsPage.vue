@@ -2,7 +2,7 @@
   <div class="teacher-assignments-page">
     <h1>My Assignments</h1>
     
-    <!-- Pulsante per creare nuovo assignment -->
+    <!-- Button to create new assignment -->
     <button 
       v-if="!showCreateForm && !currentAssignment" 
       @click="showCreateForm = true; currentAssignment = null;" 
@@ -11,7 +11,7 @@
       Create New Assignment
     </button>
 
-    <!-- Form per creare/modificare assignment -->
+    <!-- Form to create/edit assignment -->
     <AssignmentForm 
       v-if="showCreateForm || currentAssignment" 
       :assignment="currentAssignment" 
@@ -19,7 +19,7 @@
       @cancel="closeForm"
     />
 
-    <!-- Lista degli assignment -->
+    <!-- Assignment list -->
     <AssignmentListTeacher 
       v-if="!showCreateForm && !currentAssignment" 
       @edit-assignment="editAssignment"

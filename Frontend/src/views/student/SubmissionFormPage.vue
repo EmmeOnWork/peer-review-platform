@@ -5,8 +5,8 @@
         <i class="fas fa-arrow-left"></i>
       </button>
       <div class="header-content">
-        <h1><i class="fas fa-paper-plane"></i> Invia Submission</h1>
-        <p>Completa e invia la tua submission per l'assignment</p>
+        <h1><i class="fas fa-paper-plane"></i> Submit Assignment</h1>
+        <p>Complete and submit your assignment</p>
       </div>
     </div>
     <SubmissionForm />

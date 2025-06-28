@@ -8,13 +8,17 @@ import sys
 import json 
 from typing import Optional, List 
 
+        # Aggiungi l'import del nuovo modello
 from models import (
-    ReviewSubmission,
-    PeerReviewResponseWithDetails as PeerReviewResponse, 
-    PeerReviewAssignmentWithDetails as PeerReviewAssignment, 
-    ManualAssignmentRequestModel,
-    AutoAssignmentRequestModel
-)
+            ReviewSubmission,
+            PeerReviewResponseWithDetails as PeerReviewResponse, 
+            PeerReviewAssignmentWithDetails as PeerReviewAssignment,
+            AnonymousPeerReviewResponse,
+            AnonymousPeerReviewAssignment,
+            ManualAssignmentRequestModel,
+            AutoAssignmentRequestModel
+        )
+        
 from db import collection 
 
 from .auth_utils import decode_token
@@ -575,6 +579,68 @@ def get_assignment_reviews(assignmentId: str, request=request):
             
     logger.info(f"Handler 'get_assignment_reviews' found {count_db_docs} reviews in DB for assignment {assignmentId}, returning {len(result_list)} valid items.")
     return result_list, 200
+
+
+def get_submission_reviews(submissionId: str, request=request):
+    """Get all reviews for a specific submission without exposing reviewer serial numbers."""
+    logger.info(f"Handler 'get_submission_reviews' called for submissionId: {submissionId}")
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return {"error": "Missing Authorization header"}, 401
+    token_str = auth_header.split(' ')[1]
+    token_info = decode_token(token_str)
+    if not token_info: 
+        return {"error": "Invalid or expired token"}, 401
+    
+    # Verifica che la submission esista e che l'utente abbia accesso
+    submission_api_details = get_submission_details_by_id_api(submissionId, token_str)
+    if not submission_api_details:
+        return {"error": "Submission not found or access denied."}, 404
+    
+    # Verifica autorizzazione: solo il proprietario della submission o un teacher possono vedere le review
+    user_role = token_info.get('role')
+    user_id = token_info.get('user_id')
+    submission_author = submission_api_details.get('studentSerialNumber')
+    
+    if user_role != 'teacher' and user_id != submission_author:
+        return {"error": "Forbidden: You can only view reviews for your own submissions."}, 403
+    
+    # Trova tutte le review per questa submission
+    reviews_cursor = collection.find({"submissionId": submissionId}).sort("createdAt", 1)
+    result_list = []
+    count_db_docs = 0
+    
+    for review_doc_db in reviews_cursor:
+        count_db_docs += 1
+        logger.debug(f"Processing review doc from DB (for submission): {review_doc_db.get('_id')}")
+        
+        # Ottieni dettagli dell'autore della submission
+        author_api_details = get_user_details_api(review_doc_db.get("authorSerialNumber"), token_str, requester_token_info=token_info)
+        
+        # NON ottenere dettagli del reviewer per mantenere l'anonimato
+        prepared_data = _prepare_review_data_for_pydantic(review_doc_db, author_api_details, None)
+        
+        # Rimuovi esplicitamente i campi del reviewer per l'anonimato
+        prepared_data.pop('reviewerserialNumber', None)
+        prepared_data.pop('reviewerName', None)
+        prepared_data.pop('reviewerSurname', None)
+        
+
+        # Nella funzione get_submission_reviews, sostituisci le righe 626-630:
+        try:
+            if prepared_data.get("evaluation") or prepared_data.get("submittedAt"):
+                pydantic_model_instance = AnonymousPeerReviewResponse(**prepared_data)
+                result_list.append(pydantic_model_instance.model_dump(exclude_unset=True))
+            else:
+                pydantic_model_instance = AnonymousPeerReviewAssignment(**prepared_data)
+                result_list.append(pydantic_model_instance.model_dump(exclude_unset=True))
+        except ValueError as ve_pydantic:
+            logger.error(f"PYDANTIC VALIDATION FAILED (get_submission_reviews) for data from DB _id {review_doc_db.get('_id')}: {ve_pydantic!r}\nPROBLEMATIC PREPARED DATA: {json.dumps(prepared_data, default=str, indent=2)}", exc_info=True)
+    
+    logger.info(f"Handler 'get_submission_reviews' found {count_db_docs} reviews in DB for submission {submissionId}, returning {len(result_list)} valid items.")
+    return result_list, 200
+
+
 
 def health_check():
     logger.info("Review Service health check endpoint called.") 

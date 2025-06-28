@@ -11,61 +11,129 @@ data:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: production-app-ingress
-  namespace: production  # Namespace dedicato alla produzione
+  name: main-api-ingress
+  namespace: production
   annotations:
-    # Specifica che questo Ingress deve essere gestito dall'Ingress Controller Nginx
-    kubernetes.io/ingress.class: "nginx" 
-
-    # --- Policy TLS/HTTPS ---
+    kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-
-    # --- Gestione dei Path ---
-    # Abilita l'uso di espressioni regolari nei path, utile per regole più complesse.
     nginx.ingress.kubernetes.io/use-regex: "true"
-
-    # Riscrive il path prima di inviarlo al backend.
-    nginx.ingress.kubernetes.io/rewrite-target: / 
-
-    # --- Performance ---
-    # Abilita la compressione GZIP per i tipi di contenuto specificati.
     nginx.ingress.kubernetes.io/use-gzip: "true"
     nginx.ingress.kubernetes.io/gzip-types: "application/javascript application/json application/xml text/css text/plain text/xml image/svg+xml"
-
-    # --- Limiti ---
-    # Limita la dimensione massima del corpo delle richieste (es. per upload).
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m" 
-
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
 spec:
-  ingressClassName: nginx # Consigliato per specificare esplicitamente il controller
-  
-  # --- Configurazione TLS (HTTPS) ---
-  # Se vuoi abilitare HTTPS, DECOMMENTA e configura questa sezione.
-  # Assicurati che il secret 'production-tls-secret' esista nella namespace 'production'
-  # e contenga un certificato valido per 'peer-review.tuodominio.local'.
-  # Se questa sezione è presente e force-ssl-redirect è "true", tutto sarà HTTPS.
-  # Se questa sezione è presente e force-ssl-redirect è "false", HTTPS sarà disponibile ma non forzato.
-  # Se questa sezione è commentata, HTTPS non sarà disponibile tramite questo Ingress.
+  ingressClassName: nginx
   tls:
   - hosts:
       - peer-review
     secretName: production-tls-secret
-
   rules:
   - host: peer-review
     http:
       paths:
-      # Questa unica regola instrada TUTTO il traffico per l'host specificato
-      # al 'frontend-service'. Questo implica che 'frontend-service' (il tuo Nginx)
-      # è responsabile di:
-      #   1. Servire i file statici della SPA Vue.js.
-      #   2. Agire come reverse proxy per TUTTE le chiamate API ai tuoi microservizi backend.
-      - path: /                  # Cattura tutti i path (root e sotto-path)
-        pathType: Prefix       # Matching di tipo prefix
+      # --- Regole API (con Regex per gestire lo slash finale) ---
+      - path: /auth(/.*)?$
+        pathType: ImplementationSpecific
         backend:
           service:
-            name: frontend-service # Service Kubernetes del tuo Nginx+Vue frontend nella namespace 'production'
+            name: authentication-app-service
             port:
-              number: 80         # Porta del service 'frontend-service' (che mappa alla containerPort 80 di Nginx)
+              number: 5000
+      - path: /assignments(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: assignment-app-service
+            port:
+              number: 5001
+      - path: /submissions(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: submission-app-service
+            port:
+              number: 5002
+      - path: /reviews(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: review-app-service
+            port:
+              number: 5003
+      - path: /reports(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: report-app-service
+            port:
+              number: 5004
+      
+      # --- Regola Frontend (Catch-all) ---
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+# --- Risorsa 3: Ingress Esclusivo per gli Health Checks con Rewrite ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: health-checks-ingress
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    # L'annotazione chiave: tutti i path catturati da questo Ingress
+    # verranno riscritti in /health prima di essere inviati al backend.
+    nginx.ingress.kubernetes.io/rewrite-target: /health
+spec:
+  ingressClassName: nginx
+  # Specifichiamo lo stesso TLS per garantire che l'host sia gestito correttamente
+  # e che gli health checks siano disponibili su HTTPS.
+  tls:
+  - hosts:
+      - peer-review
+    secretName: production-tls-secret
+  rules:
+  - host: peer-review
+    http:
+      paths:
+      # --- Regole per gli Health Checks (con path esatti) ---
+      - path: /auth/health
+        pathType: Exact
+        backend:
+          service:
+            name: authentication-app-service
+            port:
+              number: 5000
+      - path: /assignments/health
+        pathType: Exact
+        backend:
+          service:
+            name: assignment-app-service
+            port:
+              number: 5001
+      - path: /submissions/health
+        pathType: Exact
+        backend:
+          service:
+            name: submission-app-service
+            port:
+              number: 5002
+      - path: /reviews/health
+        pathType: Exact
+        backend:
+          service:
+            name: review-app-service
+            port:
+              number: 5003
+      - path: /reports/health
+        pathType: Exact
+        backend:
+          service:
+            name: report-app-service
+            port:
+              number: 5004
 
           

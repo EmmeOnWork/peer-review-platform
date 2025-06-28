@@ -105,3 +105,41 @@ class PeerReviewResponseWithDetails(BaseModel):
             datetime: _custom_datetime_encoder
         }
     }
+
+class AnonymousPeerReviewResponse(BaseModel):
+    reviewId: AnnotatedObjectIdStr = Field(..., alias="_id")
+    submissionId: str 
+    assignmentId: AnnotatedObjectIdStr
+    authorSerialNumber: AnnotatedSerialNumberStr
+    authorName: Optional[str] = None
+    authorSurname: Optional[str] = None
+    evaluation: Optional[List[EvaluationItem]] = Field(None, max_length=20)
+    createdAt: Optional[datetime] = None
+    submittedAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
+
+    model_config = {
+        "extra": "forbid",
+        "populate_by_name": True,
+        "json_encoders": {
+            datetime: _custom_datetime_encoder
+        }
+    }
+
+class AnonymousPeerReviewAssignment(BaseModel):
+    reviewId: AnnotatedObjectIdStr = Field(..., alias="_id")
+    submissionId: str 
+    assignmentId: AnnotatedObjectIdStr
+    authorSerialNumber: AnnotatedSerialNumberStr
+    authorName: Optional[str] = None
+    authorSurname: Optional[str] = None
+    createdAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
+
+    model_config = {
+        "extra": "forbid",
+        "populate_by_name": True,
+        "json_encoders": {
+            datetime: _custom_datetime_encoder 
+        }
+    }

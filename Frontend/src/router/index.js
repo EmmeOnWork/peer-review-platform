@@ -44,6 +44,13 @@ const routes = [
     component: TeacherDashboard,
     meta: { requiresAuth: true, role: 'teacher' }
   },
+  // ADD THIS ROUTE:
+  {
+    path: '/student/dashboard',
+    name: 'StudentDashboard', 
+    component: StudentDashboard,
+    meta: { requiresAuth: true, role: 'student' }
+  },
 
   // --- Rotte Docente ---
   {
@@ -52,25 +59,39 @@ const routes = [
     component: () => import('../views/teacher/TeacherAssignmentsPage.vue'),
     meta: { requiresAuth: true, role: 'teacher' }
   },
+  // Aggiungi queste due route:
   {
     path: '/teacher/assignments/:assignmentId/submissions',
     name: 'TeacherSubmissionsList',
     component: () => import('../views/teacher/SubmissionsListPage.vue'),
     meta: { requiresAuth: true, role: 'teacher' }
   },
-  // Modifica la rotta esistente per includere assignmentId
   {
     path: '/teacher/assignments/:assignmentId/submissions/:submissionId',
     name: 'TeacherSubmissionDetails',
     component: () => import('../views/teacher/SubmissionDetailsPage.vue'),
     meta: { requiresAuth: true, role: 'teacher' }
   },
-
+  // NEW: Teacher Reports Route
+  {
+    path: '/teacher/reports',
+    name: 'TeacherReports',
+    component: () => import('../views/teacher/TeacherReportsPage.vue'),
+    meta: { requiresAuth: true, role: 'teacher' }
+  },
+  
   // --- Rotte Studente ---
   {
-    path: '/student/dashboard',
-    name: 'StudentDashboard',
-    component: StudentDashboard,
+    path: '/student/submissions',
+    name: 'MySubmissions',
+    component: () => import('../views/student/MySubmissionsPage.vue'),
+    meta: { requiresAuth: true, role: 'student' }
+  },
+  // NEW: Student Submission Reviews Route
+  {
+    path: '/student/submissions/:submissionId/reviews',
+    name: 'SubmissionReviews',
+    component: () => import('../views/student/SubmissionReviewsPage.vue'),
     meta: { requiresAuth: true, role: 'student' }
   },
   {

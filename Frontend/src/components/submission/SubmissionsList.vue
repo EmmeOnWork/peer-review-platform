@@ -17,7 +17,7 @@
     
     <div v-if="loading" class="loading">
       <div class="spinner"></div>
-      <p>Caricamento submissions...</p>
+      <p>Loading submissions...</p>
     </div>
     
     <div v-if="error" class="error-message">
@@ -27,8 +27,8 @@
     
     <div v-if="!loading && !error && submissions.length === 0" class="no-submissions">
       <i class="fas fa-inbox"></i>
-      <h4>Nessuna Submission</h4>
-      <p>Non ci sono ancora submissions per questo assignment.</p>
+      <h4>No Submissions</h4>
+      <p>There are no submissions for this assignment yet.</p>
     </div>
     
     <div v-if="!loading && !error && submissions.length > 0" class="submissions-container">
@@ -61,7 +61,7 @@
                 </div>
                 <div class="meta-item">
                   <i class="fas fa-paperclip"></i>
-                  <span>{{ submission.attachments.length }} allegati</span>
+                  <span>{{ submission.attachments.length }} attachments</span>
                 </div>
               </div>
             </div>
@@ -70,7 +70,7 @@
           <div class="card-actions">
             <button @click="viewSubmissionDetails(submission.submissionId)" class="view-details-btn">
               <i class="fas fa-eye"></i>
-              Visualizza Dettagli
+              View Details
             </button>
           </div>
         </div>
@@ -108,7 +108,7 @@ export default {
         assignmentTitle.value = response.data.title;
       } catch (err) {
         console.error('Error fetching assignment details:', err);
-        error.value = 'Impossibile caricare i dettagli dell\'assignment.';
+        error.value = 'Unable to load assignment details.';
       }
     };
     
@@ -121,9 +121,9 @@ export default {
       } catch (err) {
         console.error('Error fetching submissions:', err);
         if (err.response && err.response.status === 403) {
-          error.value = 'Non sei autorizzato a visualizzare queste submissions.';
+          error.value = 'You are not authorized to view these submissions.';
         } else {
-          error.value = 'Impossibile caricare le submissions. Riprova più tardi.';
+          error.value = 'Unable to load submissions. Please try again later.';
         }
       } finally {
         loading.value = false;

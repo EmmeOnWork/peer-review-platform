@@ -1,16 +1,19 @@
 @startuml
+!theme plain
 skinparam componentStyle rectangle
-title Component Diagram – Peer Review System (HTTP & Nginx Proxy)
+title Component Diagram – Peer Review System 
 
 package "User Device" {
-  component "Vue.js SPA\n(Frontend in Browser)" as FrontendApp
+  component "Vue.js SPA\n(in Browser)" as FrontendApp
 }
 
-package "Kubernetes Cluster (Minikube)" {
+package "Kubernetes Cluster" {
   
-  component "Ingress Controller" as Ingress
-  
-  component "Nginx\n(Web Server &\nAPI Reverse Proxy)" as NginxProxy
+  ' L'Ingress Controller è l'unico punto di ingresso e reverse proxy.
+  component "Ingress Controller\n(NGINX)" as Ingress
+
+  ' Questo Nginx serve solo i file statici, non fa più da proxy.
+  component "Frontend Web Server\n(Nginx)" as FrontendWebServer
 
   package "Backend Microservices" {
     component "Authentication Service" as Auth
@@ -31,61 +34,70 @@ package "Kubernetes Cluster (Minikube)" {
 
 
 ' === Flusso Utente e API ===
-FrontendApp --> Ingress : HTTP (Richieste Web)
-Ingress --> NginxProxy : HTTP (Instradamento al Nginx Proxy)
-
-NginxProxy --> FrontendApp : HTTP (File SPA) ' Nginx serve la SPA al frontend
-NginxProxy --> Auth : API HTTP (Proxy)
-NginxProxy --> Assignment : API HTTP (Proxy)
-NginxProxy --> Submission : API HTTP (Proxy)
-NginxProxy --> Review : API HTTP (Proxy)
-NginxProxy --> Reporting : API HTTP (Proxy)
+' L'utente nel browser fa due tipi di richieste, entrambe dirette all'Ingress.
+FrontendApp --> Ingress : "1. GET / (Richiesta per la SPA)\n2. POST /auth/login (Richiesta API)\n(HTTPS/TLS)"
 
 
-' === Accesso ai Database ===
+' L'Ingress instrada il traffico in base al path.
+Ingress --> FrontendWebServer : "Route to Frontend (path: /)"
+Ingress --> Auth : "Route to Auth Service (path: /auth/...)"
+Ingress --> Assignment : "Route to Assignment Service (path: /assignments/...)"
+Ingress --> Submission : "Route to Submission Service (path: /submissions/...)"
+Ingress --> Review : "Route to Review Service (path: /reviews/...)"
+Ingress --> Reporting : "Route to Reporting Service (path: /reports/...)"
+
+FrontendWebServer --> FrontendApp : "Serves static files (HTML, JS, CSS)"
+
+
+' === Accesso ai Database (invariato) ===
 Auth --> DBAuth : SQL
 Assignment --> DBAssignment : MongoDB Driver
 Submission --> DBSubmission : MongoDB Driver
 Review --> DBReview : MongoDB Driver
 
 
-' === Interazioni con Object Storage ===
+' === Interazioni con Object Storage (invariato) ===
 Submission --> MinIOStorage : S3 API (HTTP)
 
 
-' === Chiamate API Inter-Servizio (HTTP, interne al cluster) ===
-' Queste chiamate avvengono direttamente tra i servizi.
-Review -[#blue]-> Assignment : API HTTP (interna)
-Review -[#blue]-> Submission : API HTTP (interna)
-Submission -[#blue]-> Assignment : API HTTP (interna)
-Reporting -[#blue]-> Assignment : API HTTP (interna)
-Reporting -[#blue]-> Submission : API HTTP (interna)
-Reporting -[#blue]-> Review : API HTTP (interna)
-
-
-' === Dipendenze per Validazione JWT (Recupero Chiave Pubblica) ===
-' Tutti i servizi che necessitano di validare un token potrebbero recuperare la chiave pubblica da Auth.
-' Questa è una chiamata API HTTP interna al servizio Auth.
-Assignment .[#green].> Auth : API HTTP (interna, /public_key)
-Submission .[#green].> Auth : API HTTP (interna, /public_key)
-Review .[#green].> Auth : API HTTP (interna, /public_key)
-Reporting .[#green].> Auth : API HTTP (interna, /public_key)
-
-
-note right of Auth
-  **Validazione JWT:**
-  I servizi backend validano i JWT.
-  Possono farlo recuperando la chiave
-  pubblica dal servizio di Autenticazione
-  tramite una chiamata API HTTP interna
-  all'endpoint `/public_key`.
+' === Chiamate API Inter-Servizio (interne al cluster) ===
+note as InterServiceNote
+  **Inter-Service Communication:**
+  Services communicate directly using
+  Kubernetes service discovery
+  (e.g., http://assignment-service/...).
 end note
+InterServiceNote .. Review
+InterServiceNote .. Submission
+InterServiceNote .. Reporting
 
-note bottom of NginxProxy
-  **Nginx (Web Server & API Reverse Proxy):**
-  - Serve i file statici della Vue.js SPA.
-  - Inoltra le chiamate API dal Frontend
-    ai microservizi backend appropriati.
+Review -[#blue]-> Assignment : API HTTP
+Review -[#blue]-> Submission : API HTTP
+Submission -[#blue]-> Assignment : API HTTP
+Reporting -[#blue]-> Assignment : API HTTP
+Reporting -[#blue]-> Submission : API HTTP
+Reporting -[#blue]-> Review : API HTTP
+
+
+' === Dipendenze per Validazione JWT (invariato) ===
+note right of Auth
+  **JWT Validation:**
+  Backend services validate JWTs
+  by fetching the public key from
+  the Auth service's `/public_key` endpoint.
+end note
+Assignment .[#green].> Auth : API HTTP (e.g. /public_key)
+Submission .[#green].> Auth : API HTTP
+Review .[#green].> Auth : API HTTP
+Reporting .[#green].> Auth : API HTTP
+
+
+note bottom of Ingress
+  **Ingress Controller (Single Reverse Proxy):**
+  - Acts as the single entry point for all external traffic.
+  - Handles TLS termination.
+  - Routes requests to the appropriate service
+    (Frontend or Backend) based on the URL path.
 end note
 
 @enduml

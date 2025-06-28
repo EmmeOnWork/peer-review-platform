@@ -34,7 +34,20 @@
         <router-link to="/teacher/assignments" class="card-button">Manage Assignments</router-link>
       </div>
 
-
+      <!-- NEW: Reports Card -->
+      <div class="dashboard-card reports-card">
+        <div class="card-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3Z" fill="#9B59B6"/>
+            <path d="M7 7H17V9H7V7Z" fill="white"/>
+            <path d="M7 11H17V13H7V11Z" fill="white"/>
+            <path d="M7 15H13V17H7V15Z" fill="white"/>
+          </svg>
+        </div>
+        <h3 class="card-title">Assignment Reports</h3>
+        <p class="card-description">View detailed reports and analytics for your assignments</p>
+        <router-link to="/teacher/reports" class="card-button">View Reports</router-link>
+      </div>
     </div>
 
     <div class="logout-section">
@@ -294,5 +307,14 @@ const logoutUser = async () => {
   .card-description {
     font-size: 0.9rem;
   }
+}
+
+.reports-card::before {
+  background: linear-gradient(90deg, #9B59B6, #8E44AD);
+}
+
+.reports-card .card-button {
+  background: linear-gradient(135deg, #9B59B6 0%, #8E44AD 100%);
+  box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
 }
 </style>

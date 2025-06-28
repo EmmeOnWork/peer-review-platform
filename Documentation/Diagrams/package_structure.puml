@@ -6,7 +6,43 @@ package "Progetto" {
   package "Ingress" {
   }
   package "Backend" {
-    package "Authentication" {
+    package "Assignments" {
+      package "tests" {
+      }
+      package "k8s" {
+        package "production" {
+        }
+        package "staging" {
+        }
+      }
+      package "handlers" {
+      }
+    }
+    package "Auth" {
+      package "tests" {
+      }
+      package "k8s" {
+        package "production" {
+        }
+        package "staging" {
+        }
+      }
+      package "handlers" {
+      }
+    }
+    package "Reviews" {
+      package "tests" {
+      }
+      package "k8s" {
+        package "production" {
+        }
+        package "staging" {
+        }
+      }
+      package "handlers" {
+      }
+    }
+    package "Submissions" {
       package "tests" {
       }
       package "k8s" {
@@ -56,7 +92,11 @@ package "Progetto" {
       package "components" {
         package "auth" {
         }
+        package "assignment" {
+        }
         package "common" {
+        }
+        package "submission" {
         }
       }
     }

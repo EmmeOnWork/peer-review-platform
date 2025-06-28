@@ -1,6 +1,6 @@
 <template>
   <div class="student-submission-details-page">
-    <h1>Dettagli della Mia Submission</h1>
+    <h1>Details of My Submission</h1>
     <SubmissionDetails />
   </div>
 </template>

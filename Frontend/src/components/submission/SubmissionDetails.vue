@@ -5,13 +5,13 @@
       <button @click="goBack" class="back-btn">
         <i class="fas fa-arrow-left"></i>
       </button>
-      <h1>Dettagli Submission</h1>
+      <h1>Submission Deatails</h1>
     </div>
 
     <!-- Loading -->
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>
-      <span>Caricamento...</span>
+      <span>Loading...</span>
     </div>
 
     <!-- Error -->
@@ -30,24 +30,24 @@
           <h2>{{ submission.studentName }} {{ submission.studentSurname }}</h2>
           <span>{{ submission.studentSerialNumber }}</span>
         </div>
-        <span class="badge">Consegnato</span>
+        <span class="badge">Delivered</span>
       </div>
 
       <!-- Info generali -->
       <div class="card">
-        <h3><i class="fas fa-info-circle"></i> Informazioni</h3>
+        <h3><i class="fas fa-info-circle"></i> Information</h3>
         <div class="grid">
           <div class="item">
             <i class="fas fa-calendar"></i>
             <div>
-              <span class="label">Data</span>
+              <span class="label">Date</span>
               <span class="value">{{ formatDate(submission.submittedAt) }}</span>
             </div>
           </div>
           <div class="item">
             <i class="fas fa-clock"></i>
             <div>
-              <span class="label">Ora</span>
+              <span class="label">time</span>
               <span class="value">{{ formatTime(submission.submittedAt) }}</span>
             </div>
           </div>
@@ -56,13 +56,13 @@
         
       <!-- Testo -->
       <div class="card" v-if="submission.text">
-        <h3><i class="fas fa-file-alt"></i> Testo</h3>
+        <h3><i class="fas fa-file-alt"></i> Text</h3>
         <div class="text">{{ submission.text }}</div>
       </div>
         
       <!-- Allegati -->
       <div class="card">
-        <h3><i class="fas fa-paperclip"></i> Allegati</h3>
+        <h3><i class="fas fa-paperclip"></i> Attachments</h3>
         <div v-if="submission.attachments?.length" class="attachments">
           <div v-for="(attachment, index) in submission.attachments" :key="index" class="attachment">
             <i class="fas" :class="getFileIcon(attachment)"></i>
@@ -84,11 +84,11 @@
         <div class="review-actions">
           <button @click="openAutoAssignModal" class="btn btn-primary">
             <i class="fas fa-magic"></i>
-            Assegnazione Automatica
+            Automatic Assignment
           </button>
           <button @click="openManualAssignModal" class="btn btn-secondary">
             <i class="fas fa-hand-pointer"></i>
-            Assegnazione Manuale
+            Manual Assignment
           </button>
         </div>
       </div>
@@ -97,7 +97,7 @@
       <div v-if="showAutoModal" class="modal-overlay" @click="closeModals">
         <div class="modal" @click.stop>
           <div class="modal-header">
-            <h3>Assegnazione Automatica Peer Review</h3>
+            <h3>Automatic Assignment Peer Review</h3>
             <button @click="closeModals" class="close-btn">&times;</button>
           </div>
           <div class="modal-body">
@@ -115,7 +115,7 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button @click="closeModals" class="btn btn-cancel">Annulla</button>
+            <button @click="closeModals" class="btn btn-cancel">Cancel</button>
             <button @click="submitAutoAssign" class="btn btn-primary" :disabled="autoAssignLoading">
               <i v-if="autoAssignLoading" class="fas fa-spinner fa-spin"></i>
               Assegna Automaticamente
@@ -128,13 +128,13 @@
       <div v-if="showManualModal" class="modal-overlay" @click="closeModals">
         <div class="modal" @click.stop>
           <div class="modal-header">
-            <h3>Assegnazione Manuale Peer Review</h3>
+            <h3>Manual Assignment Peer Review</h3>
             <button @click="closeModals" class="close-btn">&times;</button>
           </div>
           <div class="modal-body">
             <p>Seleziona gli studenti che dovranno revieware questa submission:</p>
             <div v-if="studentsLoading" class="loading">
-              <i class="fas fa-spinner fa-spin"></i> Caricamento studenti...
+              <i class="fas fa-spinner fa-spin"></i> Loading students...
             </div>
             <div v-else class="students-list">
               <div 
@@ -226,18 +226,18 @@ export default {
           headers: getAuthHeaders()
         });
         submission.value = response.data;
-        // Se l'assignmentId non è nei params della route, lo prendo dalla submission
+        // If assignmentId is not in the route params, get it from the submission
         if (!assignmentId.value && submission.value.assignmentId) {
           assignmentId.value = submission.value.assignmentId;
         }
       } catch (err) {
         console.error('Error fetching submission details:', err);
         if (err.response?.status === 403) {
-          error.value = 'Non autorizzato.';
+          error.value = 'Unauthorized.';
         } else if (err.response?.status === 404) {
-          error.value = 'Submission non trovata.';
+          error.value = 'Submission not found.';
         } else {
-          error.value = 'Errore di caricamento.';
+          error.value = 'Loading error.';
         }
       } finally {
         loading.value = false;
@@ -289,7 +289,7 @@ export default {
         window.URL.revokeObjectURL(url);
       } catch (error) {
         console.error('Download error:', error);
-        alert('Errore download');
+        alert('Download Error');
       }
     };
     
@@ -313,7 +313,7 @@ export default {
     const fetchAvailableStudents = async () => {
       if (!assignmentId.value) {
         console.error('Assignment ID not available');
-        alert('ID Assignment non disponibile');
+        alert('Assignment ID not available');
         return;
       }
       
@@ -326,7 +326,7 @@ export default {
         );
       } catch (err) {
         console.error('Error fetching students:', err);
-        alert('Errore nel caricamento degli studenti');
+        alert('Error in uploading students');
       } finally {
         studentsLoading.value = false;
       }
@@ -341,11 +341,11 @@ export default {
           autoAssignData.value.minReviews
         );
         
-        alert(`Assegnazione automatica completata! Create ${response.length} review.`);
+        alert(`Automatic assignment completed! Create ${response.length} review.`);
         closeModals();
       } catch (error) {
         console.error('Error in auto assignment:', error);
-        alert('Errore nell\'assegnazione automatica');
+        alert('Error in automatic assignment');
       } finally {
         autoAssignLoading.value = false;
       }
@@ -365,11 +365,11 @@ export default {
           manualAssignments
         );
         
-        alert(`Assegnazione manuale completata! Create ${response.length} review.`);
+        alert(`Manual assignment completed! Create ${response.length} review.`);
         closeModals();
       } catch (error) {
         console.error('Error in manual assignment:', error);
-        alert('Errore nell\'assegnazione manuale');
+        alert('Error in manual assignment');
       } finally {
         manualAssignLoading.value = false;
       }

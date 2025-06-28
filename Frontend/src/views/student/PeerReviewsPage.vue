@@ -2,13 +2,13 @@
   <div class="peer-reviews-page">
     <div class="header-section">
       <h1><i class="fas fa-star"></i> Peer Reviews</h1>
-      <p>Rivedi il lavoro dei tuoi compagni di classe</p>
+      <p>Review your classmates' work</p>
     </div>
 
     <!-- Loading -->
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>
-      <span>Caricamento peer reviews...</span>
+      <span>Loading peer reviews...</span>
     </div>
 
     <!-- Error -->
@@ -20,8 +20,8 @@
     <!-- Empty State -->
     <div v-if="!loading && !error && reviews.length === 0" class="empty">
       <i class="fas fa-clipboard-list"></i>
-      <h3>Nessuna Peer Review Assegnata</h3>
-      <p>Al momento non hai peer review da completare.</p>
+      <h3>No Peer Reviews Assigned</h3>
+      <p>You currently have no peer reviews to complete.</p>
     </div>
 
     <!-- Reviews List -->
@@ -38,11 +38,11 @@
               <i v-if="review.submittedAt" class="fas fa-check-circle completed-icon"></i>
               <i v-else class="fas fa-clock pending-icon"></i>
               <span class="status-text">
-                {{ review.submittedAt ? 'Completata' : 'In Attesa' }}
+                {{ review.submittedAt ? 'Completed' : 'Pending' }}
               </span>
             </div>
             <div class="review-date">
-              <small>Assegnata: {{ formatDate(review.createdAt) }}</small>
+              <small>Assigned: {{ formatDate(review.createdAt) }}</small>
             </div>
           </div>
 
@@ -58,13 +58,13 @@
                 :class="{ 'completed': review.submittedAt }"
               >
                 <i :class="review.submittedAt ? 'fas fa-eye' : 'fas fa-edit'"></i>
-                {{ review.submittedAt ? 'Visualizza Review' : 'Inizia Review' }}
+                {{ review.submittedAt ? 'View Review' : 'Start Review' }}
               </button>
             </div>
           </div>
 
           <div v-if="review.submittedAt" class="completion-info">
-            <small>Completata il: {{ formatDate(review.submittedAt) }}</small>
+            <small>Completed on: {{ formatDate(review.submittedAt) }}</small>
           </div>
         </div>
       </div>
@@ -96,14 +96,14 @@ export default {
         
         const studentSerialNumber = user.value?.serialNumber;
         if (!studentSerialNumber) {
-          throw new Error('Serial number dello studente non trovato');
+          throw new Error('Student serial number not found');
         }
 
         const data = await reviewService.getStudentPeerReviews(studentSerialNumber);
         reviews.value = data;
       } catch (err) {
         console.error('Error fetching peer reviews:', err);
-        error.value = err.response?.data?.error || 'Errore nel caricamento delle peer reviews';
+        error.value = err.response?.data?.error || 'Error loading peer reviews';
       } finally {
         loading.value = false;
       }

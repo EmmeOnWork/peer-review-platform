@@ -1,6 +1,6 @@
 <template>
   <div class="my-submissions-page">
-    <h1>Le Mie Submission</h1>
+    <h1><i class="fas fa-file-alt"></i> My Submissions</h1>
     <MySubmissionsList />
   </div>
 </template>

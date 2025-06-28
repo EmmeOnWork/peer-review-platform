@@ -3,7 +3,7 @@
     <!-- Loading -->
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>
-      <span>Caricamento...</span>
+      <span>Loading...</span>
     </div>
 
     <!-- Error -->
@@ -11,7 +11,7 @@
       <i class="fas fa-exclamation-triangle"></i>
       <p>{{ error }}</p>
       <button @click="$router.go(-1)" class="back-btn">
-        <i class="fas fa-arrow-left"></i> Torna Indietro
+        <i class="fas fa-arrow-left"></i> Go Back
       </button>
     </div>
 
@@ -20,18 +20,18 @@
       <!-- Header -->
       <div class="header-section">
         <button @click="$router.go(-1)" class="back-btn">
-          <i class="fas fa-arrow-left"></i> Torna alle Peer Reviews
+          <i class="fas fa-arrow-left"></i> Back to Peer Reviews
         </button>
         <h1>
           <i class="fas fa-star"></i>
-          {{ isCompleted ? 'Visualizza' : 'Completa' }} Peer Review
+          {{ isCompleted ? 'View' : 'Complete' }} Peer Review
         </h1>
       </div>
 
       <!-- Submission Details Section -->
       <div class="submission-section">
         <div class="section-header">
-          <h2><i class="fas fa-file-alt"></i> Submission da Recensire</h2>
+          <h2><i class="fas fa-file-alt"></i> Submission to Review</h2>
         </div>
         
         <div class="submission-card">
@@ -43,20 +43,20 @@
               <span class="value">{{ reviewData?.assignmentId }}</span>
             </div>
             <div class="info-row">
-              <span class="label">Data Invio:</span>
+              <span class="label">Submission Date:</span>
               <span class="value">{{ formatDate(submissionData?.submittedAt) }}</span>
             </div>
           </div>
 
           <!-- Submission Text -->
           <div v-if="submissionData?.text" class="submission-text">
-            <h4>Testo della Submission:</h4>
+            <h4>Submission Text:</h4>
             <div class="text-content">{{ submissionData.text }}</div>
           </div>
 
           <!-- Attachments -->
           <div v-if="submissionData?.attachments?.length > 0" class="attachments-section">
-            <h4><i class="fas fa-paperclip"></i> Allegati ({{ submissionData.attachments.length }}):</h4>
+            <h4><i class="fas fa-paperclip"></i> Attachments ({{ submissionData.attachments.length }}):</h4>
             <div class="attachments-list">
               <div 
                 v-for="attachment in submissionData.attachments" 
@@ -74,7 +74,7 @@
                 >
                   <i v-if="downloadingFile === attachment.originalName" class="fas fa-spinner fa-spin"></i>
                   <i v-else class="fas fa-download"></i>
-                  {{ downloadingFile === attachment.originalName ? 'Scaricando...' : 'Scarica' }}
+                  {{ downloadingFile === attachment.originalName ? 'Downloading...' : 'Download' }}
                 </button>
               </div>
             </div>
@@ -87,11 +87,11 @@
         <div class="section-header">
           <h2>
             <i class="fas fa-edit"></i>
-            {{ isCompleted ? 'La Tua Valutazione' : 'Valuta la Submission' }}
+            {{ isCompleted ? 'Your Evaluation' : 'Evaluate the Submission' }}
           </h2>
           <div v-if="isCompleted" class="completed-badge">
             <i class="fas fa-check-circle"></i>
-            Completata il {{ formatDate(reviewData?.submittedAt) }}
+            Completed on {{ formatDate(reviewData?.submittedAt) }}
           </div>
         </div>
 
@@ -100,17 +100,17 @@
             <!-- Sezione criteri migliorata -->
             <div class="criteria-section">
               <div class="criteria-header">
-                <h3><i class="fas fa-clipboard-check"></i> Criteri di Valutazione</h3>
+                <h3><i class="fas fa-clipboard-check"></i> Evaluation Criteria</h3>
                 <div class="progress-indicator">
                   <div class="progress-bar">
                     <div class="progress-fill" :style="{ width: overallProgress + '%' }"></div>
                   </div>
-                  <span class="progress-text">{{ Math.round(overallProgress) }}% completato</span>
+                  <span class="progress-text">{{ Math.round(overallProgress) }}% completed</span>
                 </div>
               </div>
               <p class="criteria-description">
                 <i class="fas fa-lightbulb"></i>
-                Valuta ogni criterio e fornisci un feedback costruttivo per aiutare il tuo compagno a migliorare.
+                Evaluate each criterion and provide constructive feedback to help your peer improve.
               </p>
 
               <div 
@@ -168,19 +168,19 @@
                 <div class="feedback-input-enhanced">
                   <label :for="`feedback-${index}`" class="feedback-label-enhanced">
                     <i class="fas fa-comment-dots"></i>
-                    Feedback per "{{ criterion.criterion }}":
+                    Feedback for "{{ criterion.criterion }}":
                   </label>
                   <div class="textarea-container">
                     <textarea
                       :id="`feedback-${index}`"
                       v-model="criterion.feedback"
                       class="feedback-textarea-enhanced"
-                      :placeholder="isCompleted ? 'Nessun feedback fornito' : 'Scrivi un feedback costruttivo e specifico...'"
+                      :placeholder="isCompleted ? 'No feedback provided' : 'Write constructive and specific feedback...'"
                       rows="3"
                       :disabled="isCompleted"
                     ></textarea>
                     <div class="character-counter">
-                      {{ criterion.feedback?.length || 0 }} caratteri
+                      {{ criterion.feedback?.length || 0 }} characters
                     </div>
                   </div>
                 </div>
@@ -196,10 +196,10 @@
               >
                 <i v-if="submitting" class="fas fa-spinner fa-spin"></i>
                 <i v-else class="fas fa-paper-plane"></i>
-                {{ submitting ? 'Invio in corso...' : 'Invia Peer Review' }}
+                {{ submitting ? 'Submitting...' : 'Submit Peer Review' }}
               </button>
               <p class="submit-note">
-                Una volta inviata, la peer review non potrà più essere modificata.
+                Once submitted, the peer review can no longer be edited.
               </p>
             </div>
           </form>
@@ -262,8 +262,8 @@ export default {
         console.error('Error fetching assignment data:', err);
         // Fallback to default criteria if assignment fetch fails
         evaluationCriteria.value = [
-          { criterion: 'Completezza del lavoro', score: 0, feedback: '', maxScore: 100 },
-          { criterion: 'Qualità del contenuto', score: 0, feedback: '', maxScore: 100 }
+          { criterion: 'Work Completeness', score: 0, feedback: '', maxScore: 100 },
+          { criterion: 'Content Quality', score: 0, feedback: '', maxScore: 100 }
         ];
       }
     };
@@ -293,7 +293,7 @@ export default {
 
       } catch (err) {
         console.error('Error fetching review data:', err);
-        error.value = err.response?.data?.error || 'Errore nel caricamento dei dati';
+        error.value = err.response?.data?.error || 'Error loading data';
       } finally {
         loading.value = false;
       }
@@ -308,7 +308,7 @@ export default {
           filename
         );
         
-        // Verifica se la risposta è un file valido
+        // Check if the response is a valid file
         if (response.headers['content-type'] === 'application/octet-stream') {
           // Create download link
           const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -320,22 +320,22 @@ export default {
           link.remove();
           window.URL.revokeObjectURL(url);
         } else {
-          // La risposta potrebbe essere un errore in formato JSON
+          // The response may be a JSON error
           const text = await response.data.text();
           const errorData = JSON.parse(text);
-          throw new Error(errorData.message || 'Errore nel download del file');
+          throw new Error(errorData.message || 'Error downloading file');
         }
         
       } catch (err) {
         console.error('Error downloading attachment:', err);
-        let errorMessage = 'Errore nel download del file';
+        let errorMessage = 'Error downloading file';
         
         if (err.response) {
-          // Errore HTTP dal server
+          // HTTP error from server
           if (err.response.status === 404) {
-            errorMessage = 'File non trovato';
+            errorMessage = 'File not found';
           } else if (err.response.status === 403) {
-            errorMessage = 'Non hai i permessi per scaricare questo file';
+            errorMessage = 'You do not have permission to download this file';
           } else if (err.response.data && typeof err.response.data === 'string') {
             try {
               const errorData = JSON.parse(err.response.data);
@@ -358,7 +358,7 @@ export default {
       try {
         submitting.value = true;
         
-        // Rimuovi il campo maxScore prima di inviare i dati
+        // Remove maxScore field before sending data
         const evaluationData = evaluationCriteria.value.map(criterion => ({
           criterion: criterion.criterion,
           score: criterion.score,
@@ -367,12 +367,12 @@ export default {
         
         await reviewService.submitPeerReview(reviewId.value, evaluationData);
         
-        alert('Peer review inviata con successo!');
+        alert('Peer review submitted successfully!');
         router.push({ name: 'StudentPeerReviews' });
         
       } catch (err) {
         console.error('Error submitting review:', err);
-        alert('Errore nell\'invio della peer review: ' + (err.response?.data?.error || err.message));
+        alert('Error submitting the peer review: ' + (err.response?.data?.error || err.message));
       } finally {
         submitting.value = false;
       }
@@ -380,7 +380,7 @@ export default {
 
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
-      return new Date(dateString).toLocaleDateString('it-IT', {
+      return new Date(dateString).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -424,11 +424,11 @@ export default {
 
     const getScoreLabel = (score, maxScore) => {
       const percentage = (score / maxScore) * 100;
-      if (percentage === 0) return 'Non valutato';
-      if (percentage <= 25) return 'Insufficiente';
-      if (percentage <= 50) return 'Sufficiente';
-      if (percentage <= 75) return 'Buono';
-      return 'Eccellente';
+      if (percentage === 0) return 'Not evaluated';
+      if (percentage <= 25) return 'Insufficient';
+      if (percentage <= 50) return 'Sufficient';
+      if (percentage <= 75) return 'Good';
+      return 'Excellent';
     };
 
     const getSliderStyle = (score, maxScore) => {

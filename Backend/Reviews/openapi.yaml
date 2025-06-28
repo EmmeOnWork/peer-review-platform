@@ -330,7 +330,7 @@ paths:
 
   /reviews/assignment/{assignmentId}:
     get:
-      operationId: handlers.review.get_assignment_reviews # <<< OPERATION ID CORRETTO
+      operationId: handlers.review.get_assignment_reviews
       summary: Get all reviews for an assignment (teacher only)
       parameters:
         - name: assignmentId
@@ -389,6 +389,67 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /reviews/submission/{submissionId}:
+    get:
+      operationId: handlers.review.get_submission_reviews
+      summary: Get all reviews for a submission (anonymized - no reviewer serial number)
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          description: The ID of the submission for which to retrieve all reviews.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of anonymized peer reviews for the submission
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  # Reviews senza reviewerSerialNumber per mantenere l'anonimato
+                  oneOf:
+                    - $ref: '#/components/schemas/AnonymousPeerReviewResponse'
+                    - $ref: '#/components/schemas/AnonymousPeerReviewAssignment'
+                maxItems: 50
+        '400':
+          description: Invalid submission ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (e.g., student trying to access reviews for another student's submission)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable (e.g., external service call failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -411,6 +472,79 @@ components:
       #pattern: '^\d{10}$'
       description: Student or professor serial number (10 digits).
       example: '1234567890'
+    AnonymousPeerReviewResponse:
+      type: object
+      properties:
+        reviewId:
+          $ref: '#/components/schemas/ObjectId'
+        submissionId:
+          type: string
+        assignmentId:
+          $ref: '#/components/schemas/ObjectId'
+        authorSerialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        authorName:
+          type: string
+          nullable: true
+        authorSurname:
+          type: string
+          nullable: true
+        evaluation:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationItem'
+          maxItems: 20
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - reviewId
+        - submissionId
+        - assignmentId
+        - authorSerialNumber
+      additionalProperties: false
+
+    AnonymousPeerReviewAssignment:
+      type: object
+      properties:
+        reviewId:
+          $ref: '#/components/schemas/ObjectId'
+        submissionId:
+          type: string
+        assignmentId:
+          $ref: '#/components/schemas/ObjectId'
+        authorSerialNumber:
+          $ref: '#/components/schemas/serialNumber'
+        authorName:
+          type: string
+          nullable: true
+        authorSurname:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+        - reviewId
+        - submissionId
+        - assignmentId
+        - authorSerialNumber
+      additionalProperties: false
 
     ManualAssignmentRequest:
       type: object

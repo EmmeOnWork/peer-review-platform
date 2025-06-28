@@ -1,70 +1,110 @@
 @startuml
-title Sequence Diagram - Student Submits Work (with MinIO) (HTTP)
+title Sequence Diagram - Student Submits Work
+
+!theme plain
+skinparam sequence {
+    ArrowColor Black
+    ActorBorderColor Black
+    LifeLineBorderColor #555555
+    ParticipantBorderColor Black
+    BoxBorderColor #555555
+    BoxBackgroundColor #F8F8F8
+}
 
 actor Student
-participant FrontendApp as "Vue.js SPA\n(in Browser)"
-participant NginxProxy as "Nginx\n(Frontend & API Proxy)"
-participant SubmissionService as "Submission Service"
-participant AuthService as "Authentication Service\n(for public key)"
-participant AssignmentService as "Assignment Service\n(for validation)"
-database DBSubmission as "MongoDB\n(Submissions DB)"
-participant MinIO as "MinIO\n(S3 Object Store)"
+participant "Vue.js SPA\n(in Browser)" as FrontendApp
+participant "NGINX Ingress Controller" as Ingress
+participant "Submission Service Pod" as SubmissionServicePod
+participant "Assignment Service Pod" as AssignmentServicePod
+database "MongoDB\n(Submissions DB)" as DBSubmission
+participant "MinIO Pod" as MinIO
 
-Student -> FrontendApp: Selects assignment, uploads file(s), submits
+Student -> FrontendApp: Selects assignment, uploads file(s), and submits
 activate FrontendApp
-FrontendApp -> NginxProxy: POST /api/submissions (HTTP)\n{form-data: submissionCreateRequest, header: Authorization: Bearer authToken}
-activate NginxProxy
 
-NginxProxy -> SubmissionService: POST / (HTTP)\n{form-data: submissionCreateRequest, header: Authorization: Bearer authToken}
-activate SubmissionService
+FrontendApp -> Ingress: **POST /submissions** (HTTPS)\n{multipart/form-data, header: Auth: Bearer **jwt**}
+activate Ingress
 
-SubmissionService -> SubmissionService: token = extractFromHeader(authToken)
+note right of Ingress
+  **Path-Based Routing:**
+  Path "/submissions" matches the rule
+  for the Submission Service.
+end note
 
-group Token Decoding and Validation
-    note over SubmissionService: Assumes public key already fetched.
-    SubmissionService -> SubmissionService: tokenInfo = decode_token_with_public_key(token)
+Ingress -> SubmissionServicePod: **POST /submissions** (HTTP)\n{...}, Header: Auth: Bearer **jwt**
+activate SubmissionServicePod
+
+' Step 1: JWT Validation and get student's serial number
+SubmissionServicePod -> SubmissionServicePod: Decode token & check claims (role, exp, serialNumber)
+alt#LightCoral #White Invalid Token or Role != 'student'
+    SubmissionServicePod --> Ingress: HTTP 401/403 Response
+    deactivate SubmissionServicePod
+    Ingress --> FrontendApp: HTTP 401/403 Response
+    deactivate Ingress
+    FrontendApp -> Student: Show Error Message
+    deactivate FrontendApp
 end
 
-alt Valid Token and User Authorized (Student role)
-    SubmissionService -> SubmissionService: studentSerialNumber = tokenInfo["user_id"]
-    SubmissionService -> SubmissionService: assignmentId = submissionCreateRequest.assignmentId
+' Step 2: Validate assignment, deadline, and student enrollment
+note right of SubmissionServicePod
+  Calls Assignment service to check deadline
+  and verify the student is part of the assignment.
+end note
+SubmissionServicePod -> Ingress: **GET /assignments/{assignmentId}** (HTTP)\nHeader: Auth: Bearer **jwt**
+activate Ingress
+Ingress -> AssignmentServicePod: **GET /assignments/{assignmentId}** (HTTP)
+activate AssignmentServicePod
+AssignmentServicePod --> Ingress: HTTP 200 {assignment_details} / HTTP 404/403
+deactivate AssignmentServicePod
+Ingress --> SubmissionServicePod: HTTP 200 {assignment_details} / HTTP 404/403
+deactivate Ingress
 
-    ' Optional: Validate assignment existence/status
-    SubmissionService -> AssignmentService: GET /api/assignments/{assignmentId} (HTTP via NginxProxy or direct if internal call optimized)
-    activate AssignmentService
-    note left: This could be an internal call\nif services are in same cluster\nand Nginx is configured for it,\nor another proxied call.
-    AssignmentService --> SubmissionService: {assignmentDetails} / HTTP 404 Not Found
-    deactivate AssignmentService
-
-    alt Assignment is Valid and Open
-        SubmissionService -> SubmissionService: attachmentReferences = []
-        loop for each attachment_file in submissionCreateRequest.attachments
-            SubmissionService -> MinIO: PUT object (attachment_file) (HTTP via S3 SDK)
-            activate MinIO
-            MinIO --> SubmissionService: {object_key_or_ETag}
-            deactivate MinIO
-            SubmissionService -> SubmissionService: attachmentReferences.add(object_key)
-        end
-
-        SubmissionService -> SubmissionService: submissionRecordToSave = prepareRecord(...)
-        SubmissionService -> DBSubmission: insert_one(submissionRecordToSave)
-        activate DBSubmission
-        DBSubmission --> SubmissionService: {generated_submissionId}
-        deactivate DBSubmission
-
-        SubmissionService -> SubmissionService: submissionResponse = createSubmissionResponse(...)
-        SubmissionService --> NginxProxy: HTTP 201 Created {submissionResponse}
-    else Assignment Not Valid or Closed
-        SubmissionService --> NginxProxy: HTTP 400/404/409\n{"error": "Invalid assignment"}
-    end
-else Invalid Token or Unauthorized
-    SubmissionService --> NginxProxy: HTTP 401/403\n{"error": "Invalid token"}
+alt#LightCoral #White Assignment Not Found, Deadline Passed, or Student Not Enrolled
+    SubmissionServicePod -> SubmissionServicePod: Validate student is in assignment.students list
+    SubmissionServicePod --> Ingress: HTTP 404/403 Response\n{"error": "Assignment not available or deadline passed."}
+    deactivate SubmissionServicePod
+    Ingress --> FrontendApp: HTTP 404/403 Response
+    FrontendApp -> Student: Show Error Message
+    deactivate FrontendApp
 end
 
-deactivate SubmissionService
-NginxProxy --> FrontendApp: HTTP Response (201 or Error)
-deactivate NginxProxy
-FrontendApp -> Student: Display submission confirmation / error
+' Step 3: Check if student has already submitted
+SubmissionServicePod -> DBSubmission: findOne({assignmentId, studentSerialNumber})
+activate DBSubmission
+DBSubmission --> SubmissionServicePod: Existing submission / null
+deactivate DBSubmission
+
+alt#Gold #White Student has already submitted
+    SubmissionServicePod --> Ingress: HTTP 400\n{"error": "You have already submitted for this assignment."}
+    deactivate SubmissionServicePod
+    Ingress --> FrontendApp: HTTP 400 Response
+    FrontendApp -> Student: Show Error Message
+    deactivate FrontendApp
+end
+
+' Step 4: Upload file attachments to MinIO (S3-compatible storage)
+loop for each file in the request
+    SubmissionServicePod -> MinIO: **PUT object (file stream)**\n(Internal S3 SDK call)
+    activate MinIO
+    MinIO --> SubmissionServicePod: Success confirmation (object URL/key)
+    deactivate MinIO
+end
+
+' Step 5: Save submission metadata to database
+SubmissionServicePod -> SubmissionServicePod: build_submission_object(...)
+SubmissionServicePod -> DBSubmission: insert_one(submission_object)
+activate DBSubmission
+DBSubmission --> SubmissionServicePod: {mongo_object_id}
+deactivate DBSubmission
+
+' Step 6: Return success response
+SubmissionServicePod --> Ingress: **HTTP 201 Created**\n{final_submission_object}
+deactivate SubmissionServicePod
+
+Ingress --> FrontendApp: **HTTPS 201 Created**\n{final_submission_object}
+deactivate Ingress
+
+FrontendApp -> Student: Display "Submission successful!" confirmation
 deactivate FrontendApp
 
 @enduml

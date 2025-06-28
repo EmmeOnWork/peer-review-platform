@@ -1,6 +1,6 @@
 <template>
   <div class="submission-details-page">
-    <h1>Dettagli Submission</h1>
+    <h1>Submission Details</h1>
     <SubmissionDetails />
   </div>
 </template>

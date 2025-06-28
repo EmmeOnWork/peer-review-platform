@@ -3,11 +3,11 @@
     <div class="container">
       <div class="logo">PeerReview<span class="highlight">App</span></div>
       <nav v-if="isLoggedIn && !isAuthPage">
-        <!-- Rimuovi i link dashboard, mostra solo logout -->
+        <!-- Remove links dashboard, show only logout -->
         <button @click="performLogout" class="logout-btn">Logout</button>
       </nav>
     </div>
-    <!-- Aggiungi i pulsanti di navigazione solo se l'utente è loggato e non è nella dashboard o auth pages -->
+    <!-- Add navigation buttons only if the user is logged in and not on the dashboard or auth pages -->
     <NavigationButtons v-if="isLoggedIn && !isDashboardPage && !isAuthPage" />
   </header>
 </template>
@@ -21,7 +21,7 @@ const router = useRouter();
 const route = useRoute();
 
 const isLoggedIn = computed(() => !!localStorage.getItem('userToken'));
-// Rimuovi la variabile userRole non utilizzata per evitare l'errore ESLint
+// Remove the unused userRole variable to avoid the ESLint error
 // const userRole = computed(() => localStorage.getItem('userRole'));
 
 // Controlla se siamo in una pagina dashboard

@@ -20,7 +20,7 @@ def create_flask_app():
     flask_app = connexion_app.app 
 
 
-    NUM_PROXIES = 2 
+    NUM_PROXIES = 1
     flask_app.wsgi_app = ProxyFix(
         flask_app.wsgi_app, 
         x_for=NUM_PROXIES, 

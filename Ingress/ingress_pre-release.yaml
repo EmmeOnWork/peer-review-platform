@@ -11,24 +11,127 @@ data:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-prerelease
+  # Nomi diversi per evitare conflitti se deployati nella stessa namespace
+  name: main-api-ingress-prerelease
   namespace: pre-release
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/use-gzip: "true"
+    nginx.ingress.kubernetes.io/gzip-types: "application/javascript application/json application/xml text/css text/plain text/xml image/svg+xml"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
 spec:
+  ingressClassName: nginx
   tls:
-    - hosts:
-        - pre-release.peer-review
-      secretName: pre-release-tls-secret
+  - hosts:
+      - pre-release.peer-review
+    secretName: pre-release-tls-secret
   rules:
-    - host: pre-release.peer-review
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend-service
-                port:
-                  number: 80
-             
+  - host: pre-release.peer-review
+    http:
+      paths:
+      # --- Regole API (con Regex per gestire lo slash finale) ---
+      - path: /auth(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: authentication-app-service # I nomi dei servizi DEVONO essere corretti per questa namespace
+            port:
+              number: 5000
+      - path: /assignments(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: assignment-app-service
+            port:
+              number: 5001
+      - path: /submissions(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: submission-app-service
+            port:
+              number: 5002
+      - path: /reviews(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: review-app-service
+            port:
+              number: 5003
+      - path: /reports(/.*)?$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: report-app-service
+            port:
+              number: 5004
+      
+      # --- Regola Frontend (Catch-all) ---
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+# --- Risorsa 3: Ingress Esclusivo per gli Health Checks (Pre-Release) ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: health-checks-ingress-prerelease
+  namespace: pre-release
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    # L'annotazione chiave: tutti i path catturati da questo Ingress
+    # verranno riscritti in /health prima di essere inviati al backend.
+    nginx.ingress.kubernetes.io/rewrite-target: /health
+spec:
+  ingressClassName: nginx
+  # Specifichiamo lo stesso TLS per garantire che l'host sia gestito correttamente.
+  tls:
+  - hosts:
+      - pre-release.peer-review
+    secretName: pre-release-tls-secret
+  rules:
+  - host: pre-release.peer-review
+    http:
+      paths:
+      # --- Regole per gli Health Checks (con path esatti) ---
+      - path: /auth/health
+        pathType: Exact
+        backend:
+          service:
+            name: authentication-app-service
+            port:
+              number: 5000
+      - path: /assignments/health
+        pathType: Exact
+        backend:
+          service:
+            name: assignment-app-service
+            port:
+              number: 5001
+      - path: /submissions/health
+        pathType: Exact
+        backend:
+          service:
+            name: submission-app-service
+            port:
+              number: 5002
+      - path: /reviews/health
+        pathType: Exact
+        backend:
+          service:
+            name: review-app-service
+            port:
+              number: 5003
+      - path: /reports/health
+        pathType: Exact
+        backend:
+          service:
+            name: report-app-service
+            port:
+              number: 5004

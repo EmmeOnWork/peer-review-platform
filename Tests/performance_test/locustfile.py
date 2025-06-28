@@ -8,30 +8,33 @@ from locust import HttpUser, TaskSet, task, between, events
 import locust_plugins
 import urllib3
 
+# API paths for different services, accessed via an ingress/gateway
 AUTH_API_PATH = "/auth/"
 ASSIGNMENT_API_PATH = "/assignments"
 SUBMISSION_API_PATH = "/submissions"
 REVIEW_API_PATH = "/reviews/"
+REPORT_API_PATH = "/reports/"
 
 TEST_PASSWORD = "password123"
 
+# Disable SSL warnings for local testing if needed
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- Shared State Management ---
 class SharedState:
-    """Classe per contenere tutti i dati condivisi tra gli utenti Locust."""
+    """Class to hold all shared data between Locust users."""
     def __init__(self):
         self.assignment_ids = []
         self.submission_ids_for_review = {}  # { assignment_id: [submission_id, ...] }
         self.available_student_serials = []
 
     def clear(self):
-        """Resetta lo stato all'inizio di un nuovo test."""
+        """Reset the state at the start of a new test."""
         self.assignment_ids.clear()
         self.submission_ids_for_review.clear()
         self.available_student_serials.clear()
 
-# Istanza unica e globale dello stato condiviso
+# Global instance of the shared state
 shared_state = SharedState()
 
 # --- Data Pools for User Generation ---
@@ -79,8 +82,6 @@ class BaseLocustUser(HttpUser):
     user_role = None
     user_email = None
 
-    # <<< INIZIO BLOCCO CORRETTO: Metodi indentati per essere parte della classe >>>
-
     def _register_or_login(self):
         first_name = random.choice(FIRST_NAMES_POOL)
         last_name = random.choice(LAST_NAMES_POOL)
@@ -103,7 +104,7 @@ class BaseLocustUser(HttpUser):
                 response.success()
                 registration_successful = True
             elif response.status_code == 400 and ("already" in response.text.lower()):
-                response.success()
+                response.success() # Treat "already exists" as a success for login purposes
                 registration_successful = True
             else:
                 response.failure(f"Registration failed: {response.status_code} - {response.text}")
@@ -128,8 +129,9 @@ class BaseLocustUser(HttpUser):
                 return False
 
     def on_start(self):
-        self.client.verify = False
+        self.client.verify = False # Disable SSL verification if using self-signed certs
         if not self._register_or_login() or not self.token:
+            print(f"Stopping user {self.user_email} due to failed registration/login.")
             self.stop(True)
 
     def on_stop(self):
@@ -141,25 +143,25 @@ class BaseLocustUser(HttpUser):
 
     def get_auth_headers(self):
         return {'Authorization': f'Bearer {self.token}'} if self.token else None
-    
-    # <<< FINE BLOCCO CORRETTO >>>
-
 
 # --- Teacher User Tasks ---
 class TeacherTasks(TaskSet):
+    # This rubric is used to create assignments. It must match the one used by students for submissions.
     assignment_rubric = [{"criterion": "Completeness", "maxScore": 10}, {"criterion": "Quality", "maxScore": 10}]
 
     @task(10)
     def create_assignment(self):
+        """Creates a new assignment and adds its ID to the shared state for students to use."""
         headers = self.user.get_auth_headers()
         if not headers: return
         
-        potential_students = [s for s in shared_state.available_student_serials if s != self.user.serial_number]
+        # Need at least 3 students to create a meaningful assignment for this test
+        potential_students = [s for s in shared_state.available_student_serials]
         if len(potential_students) < 3: return
         
         assignment_data = {
             "title": f"Locust Assignment {uuid.uuid4().hex[:6]}",
-            "description": "Automated assignment.",
+            "description": "Automated performance test assignment.",
             "deadline": (datetime.now(timezone.utc) + timedelta(days=random.randint(1, 5))).isoformat(),
             "rubric": self.assignment_rubric,
             "students": random.sample(potential_students, 3)
@@ -176,18 +178,29 @@ class TeacherTasks(TaskSet):
 
     @task(5)
     def auto_assign_peer_reviews(self):
+        """Picks a random assignment and triggers auto-assignment of peer reviews."""
         headers = self.user.get_auth_headers()
-        if not headers: return
-        if not shared_state.assignment_ids: return
+        if not headers or not shared_state.assignment_ids: return
 
         assignment_id_to_review = random.choice(shared_state.assignment_ids)
+        # Check if there are enough submissions for this assignment to make the call meaningful
         submissions_for_assignment = shared_state.submission_ids_for_review.get(assignment_id_to_review, [])
-        if len(submissions_for_assignment) < 4: return
+        if len(submissions_for_assignment) < 2: return
 
-        with self.user.client.post(f"{REVIEW_API_PATH}assign/auto", json={"assignmentId": assignment_id_to_review, "minReviews": 3}, headers=headers, name="/teacher/auto_assign_reviews", catch_response=True) as response:
+        with self.user.client.post(f"{REVIEW_API_PATH}assign/auto", json={"assignmentId": assignment_id_to_review, "minReviews": 1}, headers=headers, name="/teacher/auto_assign_reviews", catch_response=True) as response:
             if response.ok: response.success()
-            elif response.status_code in [400, 404]: response.success() # Non-critical failure
+            elif response.status_code in [400, 404]: response.success() # Non-critical failures (e.g., no submissions)
             else: response.failure(f"Auto-assign reviews failed: {response.status_code} - {response.text}")
+
+    @task(3)
+    def get_teacher_report(self):
+        """Fetches the aggregated report for all assignments created by the teacher."""
+        headers = self.user.get_auth_headers()
+        if not headers or not self.user.serial_number: return
+
+        with self.user.client.get(f"{REPORT_API_PATH}teacher/{self.user.serial_number}", headers=headers, name="/teacher/get_report", catch_response=True) as response:
+            if response.ok: response.success()
+            else: response.failure(f"Get teacher report failed: {response.status_code}")
 
     @task(2)
     def get_own_profile(self):
@@ -197,19 +210,20 @@ class TeacherTasks(TaskSet):
             if response.ok: response.success()
             else: response.failure(f"Get teacher profile failed: {response.status_code}")
 
-    @task(1)
-    def list_all_students(self):
-        headers = self.user.get_auth_headers()
-        if not headers: return
-        with self.user.client.get(f"{AUTH_API_PATH}users/students", headers=headers, name="/teacher/list_students", catch_response=True) as response:
-            if response.ok: response.success()
-            else: response.failure(f"List students failed: {response.status_code}")
-
 # --- Student User Tasks ---
 class StudentTasks(TaskSet):
+    
+    # This rubric must be consistent with the one the teacher uses.
+    assignment_rubric = [{"criterion": "Completeness", "maxScore": 10}, {"criterion": "Quality", "maxScore": 10}]
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Local list to track submissions made by this specific student instance
+        self.submitted_ids = []
 
     @task(10)
     def submit_assignment(self):
+        """Submits work for a random assignment available in the shared state."""
         headers = self.user.get_auth_headers()
         if not headers or not self.user.serial_number or not shared_state.assignment_ids: return
 
@@ -222,18 +236,23 @@ class StudentTasks(TaskSet):
                 submission_json = response.json()
                 submission_id = submission_json.get('submissionId')
                 if submission_id:
+                    # Add to global state for teachers to assign reviews
                     if target_assignment_id not in shared_state.submission_ids_for_review:
                         shared_state.submission_ids_for_review[target_assignment_id] = []
                     if submission_id not in shared_state.submission_ids_for_review[target_assignment_id]:
                          shared_state.submission_ids_for_review[target_assignment_id].append(submission_id)
+                    # Add to local state for this student to check their report later
+                    if submission_id not in self.submitted_ids:
+                        self.submitted_ids.append(submission_id)
                     response.success()
                 else: response.failure("Submission OK but no submissionId in response")
             elif response.status_code == 400 and "already submitted" in response.text.lower(): response.success()
-            elif response.status_code in [403, 404]: response.success()
+            elif response.status_code in [403, 404]: response.success() # Non-critical failure (e.g., student not in assignment)
             else: response.failure(f"Submit assignment failed: {response.status_code} - {response.text}")
 
     @task(5)
-    def list_and_process_assigned_reviews(self):
+    def list_and_submit_assigned_review(self):
+        """Lists assigned reviews and submits one that is not yet completed."""
         headers = self.user.get_auth_headers()
         if not headers or not self.user.serial_number: return
 
@@ -253,27 +272,32 @@ class StudentTasks(TaskSet):
         
         if not review_to_process_id: return
 
-        # 2. Get specific review details to fetch the rubric
-        rubric = None
-        with self.user.client.get(f"{REVIEW_API_PATH}{review_to_process_id}", headers=headers, name="/student/get_specific_review", catch_response=True) as response:
-            if not response.ok:
-                response.failure(f"Get review {review_to_process_id} failed: {response.status_code}")
-                return
-            rubric = response.json().get("assignment", {}).get("rubric")
-            response.success()
-
-        if not rubric: return
-
-        # 3. Submit the review
+        # 2. Submit the review using the predefined rubric
         evaluation_payload = []
-        for criterion in rubric:
+        for criterion in self.assignment_rubric:
             max_score = criterion.get("maxScore", 10)
             score = random.randint(1, max_score)
             evaluation_payload.append({"criterion": criterion.get("criterion"), "score": score, "feedback": "Auto-generated feedback."})
         
         with self.user.client.put(f"{REVIEW_API_PATH}{review_to_process_id}", json={"evaluation": evaluation_payload}, headers=headers, name="/student/submit_review", catch_response=True) as response:
             if response.ok: response.success()
+            elif response.status_code == 400 and "already been submitted" in response.text.lower(): response.success()
             else: response.failure(f"Submit review {review_to_process_id} failed: {response.status_code}")
+
+    @task(3)
+    def get_submission_report(self):
+        """Fetches the anonymous report for one of the student's own submissions."""
+        headers = self.user.get_auth_headers()
+        if not headers or not self.user.serial_number or not self.submitted_ids: return
+
+        submission_id_to_check = random.choice(self.submitted_ids)
+        url = f"{REPORT_API_PATH}student/{self.user.serial_number}/submissions/{submission_id_to_check}"
+        with self.user.client.get(url, headers=headers, name="/student/get_submission_report", catch_response=True) as response:
+            if response.ok:
+                # The response should contain reviews, average score, etc.
+                response.success()
+            else:
+                response.failure(f"Get submission report failed: {response.status_code}")
 
     @task(2)
     def get_own_profile(self):
@@ -282,14 +306,6 @@ class StudentTasks(TaskSet):
         with self.user.client.get(f"{AUTH_API_PATH}users/me", headers=headers, name="/student/get_profile", catch_response=True) as response:
             if response.ok: response.success()
             else: response.failure(f"Get student profile failed: {response.status_code}")
-
-    @task(1)
-    def update_own_profile(self):
-        headers = self.user.get_auth_headers()
-        if not headers: return
-        with self.user.client.put(f"{AUTH_API_PATH}users/me", json={"residence": f"New City {uuid.uuid4().hex[:6]}"}, headers=headers, name="/student/update_profile", catch_response=True) as response:
-            if response.ok: response.success()
-            else: response.failure(f"Update student profile failed: {response.status_code}")
 
 # --- User Classes ---
 class TeacherUser(BaseLocustUser):
@@ -302,25 +318,30 @@ class StudentUser(BaseLocustUser):
     wait_time = between(1, 3)
     user_role = "student"
     tasks = [StudentTasks]
-    weight = 3
-    
+    weight = 4 # Increased weight as there are typically more students than teachers
+
+# Optional: A simple user to hit the frontend/public endpoints
 class FrontendUser(HttpUser):
     wait_time = between(1, 3)
-
+    tasks = [] # Disable default tasks
+    
     @task(10)
     def health_check(self):
-        self.client.get("/health/", name="GET /health/", verify=False)
+        # Assuming your gateway exposes a general health check
+        self.client.get("/health", name="/health/frontend", verify=False)
 
     @task(5)
     def load_homepage(self):
+        # Assuming the root path serves a frontend
         self.client.get("/", name="GET /", verify=False)
 
 # --- Event Hooks ---
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
-    print("--- Load Test Starting (via Ingress) ---")
+    print("--- Locust Test Starting ---")
     shared_state.clear()
+    print("Shared state cleared.")
 
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
-    print("--- Load Test Stopping ---")
+    print("--- Locust Test Stopping ---")

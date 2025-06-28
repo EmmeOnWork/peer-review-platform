@@ -2,8 +2,8 @@
   <div class="my-submissions-list">
     <!-- Loading -->
     <div v-if="loading" class="loading">
-      <i class="fas fa-spinner fa-spin"></i>
-      <span>Caricamento submission...</span>
+      <div class="spinner"></div>
+      <p>Loading...</p>
     </div>
 
     <!-- Error -->
@@ -11,63 +11,69 @@
       <i class="fas fa-exclamation-triangle"></i>
       <p>{{ error }}</p>
     </div>
-    
+
     <!-- Empty State -->
     <div v-if="!loading && !error && submissions.length === 0" class="empty">
       <i class="fas fa-inbox"></i>
-      <h3>Nessuna Submission</h3>
-      <p>Non hai ancora inviato nessuna submission.</p>
+      <h3>No Submissions</h3>
+      <p>You have not submitted any submissions yet.</p>
     </div>
-    
+
     <!-- Submissions Table -->
     <div v-if="!loading && !error && submissions.length > 0" class="submissions-container">
-      <div class="table-card">
-        <div class="table-header">
-          <h3><i class="fas fa-list"></i> Le Tue Submission</h3>
+      <div class="header">
+        <div class="stats">
           <span class="count">{{ submissions.length }} submission</span>
+          <span> 
+          
+          </span>
         </div>
-        
-        <div class="table-content">
-          <div class="table-responsive">
-            <table class="submissions-table">
-              <thead>
-                <tr>
-                  <th><i class="fas fa-tasks"></i> Assignment</th>
-                  <th><i class="fas fa-calendar"></i> Data Invio</th>
-                  <th><i class="fas fa-paperclip"></i> Allegati</th>
-                  <th><i class="fas fa-cog"></i> Azioni</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="submission in submissions" :key="submission.submissionId" class="submission-row">
-                  <td class="assignment-cell">
-                    <div class="assignment-info">
-                      <span class="assignment-id">{{ submission.assignmentId }}</span>
-                    </div>
-                  </td>
-                  <td class="date-cell">
-                    <div class="date-info">
-                      <span class="date">{{ formatDate(submission.submittedAt) }}</span>
-                      <span class="time">{{ formatTime(submission.submittedAt) }}</span>
-                    </div>
-                  </td>
-                  <td class="attachments-cell">
-                    <div class="attachments-count">
-                      <i class="fas fa-paperclip"></i>
-                      <span>{{ submission.attachments.length }}</span>
-                    </div>
-                  </td>
-                  <td class="actions-cell">
-                    <button @click="viewSubmissionDetails(submission.submissionId)" class="view-btn">
-                      <i class="fas fa-eye"></i>
-                      Dettagli
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="submissions-table">
+          <thead>
+            <tr>
+              <th><i class="fas fa-tasks"></i> Assignment</th>
+              <th><i class="fas fa-calendar-alt"></i> Date sent</th>
+              <th><i class="fas fa-paperclip"></i> Attachments</th>
+              <th><i class="fas fa-cog"></i> Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="submission in submissions" :key="submission.submissionId" class="submission-row">
+              <td class="assignment-cell">
+                <div class="assignment-info">
+                  <span class="assignment-title">{{ getAssignmentTitle(submission.assignmentId) }}</span>
+                </div>
+              </td>
+              <td class="date-cell">
+                <div class="date-info">
+                  <span class="date">{{ formatDate(submission.submittedAt) }}</span>
+                  <span class="time">{{ formatTime(submission.submittedAt) }}</span>
+                </div>
+              </td>
+              <td class="attachments-cell">
+                <div class="attachments-count">
+                  <i class="fas fa-paperclip"></i>
+                  <span>{{ submission.attachments.length }}</span>
+                </div>
+              </td>
+              <td class="actions-cell">
+                <div class="action-buttons">
+                  <button @click="viewSubmissionDetails(submission.submissionId)" class="view-btn" title="Visualizza Dettagli">
+                    <i class="fas fa-eye"></i>
+                    <span class="btn-label">View Details</span>
+                  </button>
+                  <button @click="viewSubmissionReviews(submission.submissionId)" class="reviews-btn" title="Vedi Reviews">
+                    <i class="fas fa-star"></i>
+                    <span class="btn-label">View Reviews</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -85,6 +91,7 @@ export default {
     const submissions = ref([]);
     const loading = ref(true);
     const error = ref(null);
+    const assignmentTitles = ref(new Map());
     
     const getAuthHeaders = () => {
       const token = localStorage.getItem('userToken');
@@ -93,47 +100,66 @@ export default {
     
     const fetchMySubmissions = async () => {
       try {
-        const response = await axios.get('/submissions/mine', {
+        // Fetch submissions
+        const submissionsResponse = await axios.get('/submissions/mine', {
           headers: getAuthHeaders()
         });
-        submissions.value = response.data;
+        submissions.value = submissionsResponse.data;
+        
+        // Fetch assignments titles using the student endpoint
+        const assignmentsResponse = await axios.get('/assignments/student/mine', {
+          headers: getAuthHeaders()
+        });
+        
+        // Create a map of assignmentId -> title
+        const titlesMap = new Map();
+        assignmentsResponse.data.forEach(assignment => {
+          titlesMap.set(assignment._id, assignment.title);
+        });
+        assignmentTitles.value = titlesMap;
+        
       } catch (err) {
-        console.error('Error fetching my submissions:', err);
-        if (err.response?.status === 401) {
-          error.value = 'Non autorizzato. Effettua nuovamente il login.';
-        } else {
-          error.value = 'Impossibile caricare le tue submission.';
-        }
+        error.value = 'Error fetching submissions';
+        console.error('Error fetching submissions:', err);
       } finally {
         loading.value = false;
       }
     };
     
+    const getAssignmentTitle = (assignmentId) => {
+      return assignmentTitles.value.get(assignmentId) || assignmentId;
+    };
+    
+    const viewSubmissionDetails = (submissionId) => {
+      router.push(`/student/submissions/${submissionId}`);
+    };
+
+    const viewSubmissionReviews = (submissionId) => {
+      router.push(`/student/submissions/${submissionId}/reviews`);
+    };
+    
     const formatDate = (dateString) => {
-      if (!dateString) return 'N/A';
-      return new Date(dateString).toLocaleDateString('it-IT', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      });
+      return new Date(dateString).toLocaleDateString('it-IT');
     };
     
     const formatTime = (dateString) => {
-      if (!dateString) return 'N/A';
       return new Date(dateString).toLocaleTimeString('it-IT', {
         hour: '2-digit',
         minute: '2-digit'
       });
     };
     
-    const viewSubmissionDetails = (submissionId) => {
-      router.push(`/student/submissions/${submissionId}`);
-    };
-    
     onMounted(fetchMySubmissions);
     
     return {
-      submissions, loading, error, formatDate, formatTime, viewSubmissionDetails
+      submissions,
+      loading,
+      error,
+      getAssignmentTitle,
+      viewSubmissionDetails,
+      viewSubmissionReviews,
+      formatDate,
+      formatTime
     };
   }
 };
@@ -142,6 +168,8 @@ export default {
 <style scoped>
 .my-submissions-list {
   padding: 0;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .loading, .error, .empty {
@@ -192,13 +220,31 @@ export default {
 
 .submissions-container {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
   overflow: hidden;
+  margin-top: 24px;
+  padding: 24px 18px 32px 18px;
 }
 
-.table-card {
+/* --- MODIFICA AGGIUNTA QUI --- */
+.header {
+  margin-bottom: 24px; /* Aggiunge spazio sotto l'header (con il conteggio) */
+}
+/* --- FINE MODIFICA --- */
+
+.table-container {
+  overflow-x: auto;
+}
+
+.submissions-table {
   width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+.submissions-table th, .submissions-table td {
+  padding: 16px 14px;
 }
 
 .table-header {
@@ -356,6 +402,58 @@ export default {
   transform: translateY(-1px);
 }
 
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.view-btn, .reviews-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-label {
+  display: inline-block;
+  margin-left: 4px;
+}
+
+@media (max-width: 900px) {
+  .my-submissions-list {
+    max-width: 100%;
+    padding: 0 4px;
+  }
+  .submissions-container {
+    padding: 12px 2px 18px 2px;
+  }
+  .submissions-table {
+    min-width: 500px;
+  }
+}
+
+@media (max-width: 600px) {
+  .submissions-table th, .submissions-table td {
+    padding: 10px 4px;
+    font-size: 0.85rem;
+  }
+  .view-btn, .reviews-btn {
+    padding: 6px 8px;
+    font-size: 0.85rem;
+  }
+  .btn-label {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
   .table-header {
     flex-direction: column;
@@ -390,6 +488,18 @@ export default {
   .submissions-table th:nth-child(3),
   .submissions-table td:nth-child(3) {
     display: none;
+  }
+}
+
+.assignment-title {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 768px) {
+  .assignment-title {
+    font-size: 0.85rem;
   }
 }
 </style>

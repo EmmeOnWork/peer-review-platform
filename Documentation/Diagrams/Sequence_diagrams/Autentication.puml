@@ -1,47 +1,74 @@
 @startuml
-title Sequence Diagram - User Login (HTTP)
+title Sequence Diagram - Login Flow (Corrected Architecture)
 
-actor User
-participant Browser
-participant Ingress as "Ingress Controller\n(Minikube)"
-participant NginxProxy as "Nginx\n(Frontend & API Proxy)"
-participant FrontendApp as "Vue.js SPA\n(in Browser)"
-participant AuthService as "Authentication Service"
-database DBAuth as "PostgreSQL\n(Authentication DB)"
 
-User -> Browser: Accesses application URL
-Browser -> Ingress: GET / (HTTP Request for SPA)
+actor "User's Browser" as Browser
+participant "NGINX Ingress Controller" as Ingress
+participant "Frontend Pod (nginx)" as FrontendPod
+participant "Vue.js SPA\n(in Browser)" as FrontendApp
+participant "Authentication Service Pod" as AuthServicePod
+database "PostgreSQL\n(Authentication DB)" as DBAuth
+
+' Flusso 1: L'utente carica la pagina iniziale (Single-Page Application)
+User -> Browser: Accesses application URL (e.g., https://peer-review)
+
+Browser -> Ingress: **GET /**\n(HTTPS Request)
 activate Ingress
-Ingress -> NginxProxy: Forward GET /
-activate NginxProxy
-NginxProxy --> Ingress: index.html, app.js, etc. (SPA files)
-Ingress --> Browser: SPA files
-deactivate Ingress
-Browser -[#black]> FrontendApp: Loads and renders SPA (Login UI)
-deactivate NginxProxy
 
+note right of Ingress
+  **Path-Based Routing:**
+  Path "/" matches the rule for the
+  frontend service.
+end note
+Ingress -> FrontendPod: **GET /**\n(HTTP Request, via Frontend Service)
+activate FrontendPod
+FrontendPod --> Ingress: index.html, app.js, etc.
+deactivate FrontendPod
+
+Ingress --> Browser: Serves SPA static files
+deactivate Ingress
+
+Browser -[#black]> FrontendApp: Loads and renders SPA, showing Login UI
+
+' Flusso 2: L'utente esegue il login
 User -> FrontendApp: Submits Login (email, password)
 activate FrontendApp
-FrontendApp -> NginxProxy: POST /api/auth/login (HTTP)\n{email, password}
-activate NginxProxy
-NginxProxy -> AuthService: POST /login (HTTP)\n{email, password}
-activate AuthService
-AuthService -> DBAuth: findUserByEmail(email)
+
+FrontendApp -> Ingress: **POST /auth/login** (HTTPS)\n{email, password}
+activate Ingress
+
+note right of Ingress
+  **Path-Based Routing:**
+  Path "/auth/login" matches the
+  regex rule `/auth(/.*)?$`.
+  The request is forwarded to the
+  Authentication Service.
+end note
+Ingress -> AuthServicePod: **POST /auth/login** (HTTP)\n{email, password}
+note right of Ingress: Path is preserved (no rewrite)
+activate AuthServicePod
+
+AuthServicePod -> DBAuth: findUserByEmail(email)
 activate DBAuth
-DBAuth --> AuthService: userData / null
+DBAuth --> AuthServicePod: userData / null
 deactivate DBAuth
+
 group Internal Logic
-    AuthService -> AuthService: Verify password
+    AuthServicePod -> AuthServicePod: Verify password hash
     alt Password OK
-        AuthService -> AuthService: Generate JWT
+        AuthServicePod -> AuthServicePod: Generate JWT
     end
 end
-AuthService --> NginxProxy: HTTP Response\n{jwt_token} / Error (e.g., 401)
-deactivate AuthService
-NginxProxy --> FrontendApp: HTTP Response\n{jwt_token} / Error
-deactivate NginxProxy
-alt Login Successful
-    FrontendApp -> User: Show Dashboard
+
+AuthServicePod --> Ingress: HTTP 200 OK\n{jwt_token, user_info}
+deactivate AuthServicePod
+
+Ingress --> FrontendApp: HTTPS 200 OK\n{jwt_token, user_info}
+deactivate Ingress
+
+alt#LightCoral #White Login Successful
+    FrontendApp -> FrontendApp: Store token in localStorage
+    FrontendApp -> User: Redirect to Dashboard
 else Login Failed
     FrontendApp -> User: Show Error Message
 end

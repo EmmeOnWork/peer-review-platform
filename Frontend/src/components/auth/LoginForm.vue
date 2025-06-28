@@ -117,7 +117,7 @@ export default {
           router.push("/");
         }
       } catch (err) {
-        errorMessage.value = "Credenziali non valide o errore di rete.";
+        errorMessage.value = "Invalid credentials or network error.";
       }
     };
 

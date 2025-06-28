@@ -18,6 +18,7 @@ spec:
           value: "http://submission-app-service:5002"
         - name: REVIEW_SERVICE_URL
           value: "http://review-app-service:5003"
-
+        - name: REPORT_SERVICE_URL
+          value: "http://report-app-service:5004"
 
       restartPolicy: Never

@@ -2,7 +2,7 @@
   <div class="assignment-list-teacher">
     <div class="header-section">
       <h3><i class="fas fa-tasks"></i> My Assignments</h3>
-      <p class="subtitle">Gestisci e monitora i tuoi assignment</p>
+      <p class="subtitle">Manage and monitor your assignments</p>
     </div>
     
     <div v-if="loading" class="loading">
@@ -17,8 +17,8 @@
     
     <div v-if="!loading && !error && assignments.length === 0" class="no-assignments">
       <i class="fas fa-clipboard-list"></i>
-      <h4>Nessun Assignment Creato</h4>
-      <p>Non hai ancora creato nessun assignment. Inizia creando il tuo primo assignment!</p>
+      <h4>No Assignments Created</h4>
+      <p>You have not created any assignments yet. Start by creating your first assignment!</p>
     </div>
     
     <div v-if="!loading && !error && assignments.length > 0" class="assignments-grid">
@@ -36,7 +36,7 @@
           <div class="assignment-meta">
             <span class="meta-item">
               <i class="fas fa-clock"></i>
-              Scadenza: {{ new Date(assignment.deadline).toLocaleDateString() }}
+              Deadline: {{ new Date(assignment.deadline).toLocaleDateString() }}
             </span>
           </div>
         </div>
@@ -66,7 +66,7 @@
         class="load-more-btn"
       >
         <i class="fas fa-plus"></i>
-        Mostra altri ({{ remainingItems }} rimanenti)
+        Show more ({{ remainingItems }} remaining)
       </button>
     </div>
   </div>
@@ -175,10 +175,10 @@ const formatDeadline = (deadline) => {
   const deadlineDate = new Date(deadline);
   const diffDays = Math.ceil((deadlineDate - now) / (1000 * 60 * 60 * 24));
   
-  if (diffDays < 0) return 'Scaduto';
-  if (diffDays === 0) return 'Oggi';
-  if (diffDays === 1) return 'Domani';
-  return `${diffDays} giorni`;
+  if (diffDays < 0) return 'Expired';
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  return `${diffDays} days`;
 };
 </script>
 

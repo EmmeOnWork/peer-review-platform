@@ -1,0 +1,10 @@
+connexion[swagger-ui,uvicorn]
+flask
+PyJWT
+requests
+PyYAML
+pytest
+gunicorn
+cryptography
+uvicorn
+a2wsgi

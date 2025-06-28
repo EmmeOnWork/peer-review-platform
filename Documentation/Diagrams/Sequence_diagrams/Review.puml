@@ -1,61 +1,106 @@
 @startuml
-title Sequence Diagram - Student Submits a Peer Review (HTTP)
+title Sequence Diagram - Teacher Auto-Assigns Peer Reviews
 
-actor Student
-participant FrontendApp as "Vue.js SPA\n(in Browser)"
-participant NginxProxy as "Nginx\n(Frontend & API Proxy)"
-participant ReviewService as "Review Service"
-participant AuthService as "Authentication Service\n(for public key)"
-database DBReview as "MongoDB\n(Reviews DB)" 
+!theme plain
+skinparam sequence {
+    ArrowColor Black
+    ActorBorderColor Black
+    LifeLineBorderColor #555555
+    ParticipantBorderColor Black
+    BoxBorderColor #555555
+    BoxBackgroundColor #F8F8F8
+}
 
-Student -> FrontendApp: Views assigned review, completes evaluation, and submits
+actor Teacher
+participant "Vue.js SPA\n(in Browser)" as FrontendApp
+participant "NGINX Ingress Controller" as Ingress
+participant "Review Service Pod" as ReviewServicePod
+participant "Assignment Service Pod" as AssignmentServicePod
+participant "Submission Service Pod" as SubmissionServicePod
+participant "Authentication Service Pod" as AuthServicePod
+database "MongoDB\n(Reviews DB)" as DBReview
+
+Teacher -> FrontendApp: Selects assignment, clicks "Auto-Assign Reviews"
 activate FrontendApp
-FrontendApp -> NginxProxy: PUT /api/reviews/{reviewId} (HTTP)\n{body: reviewSubmissionData, header: Authorization: Bearer authToken}
-activate NginxProxy
 
-NginxProxy -> ReviewService: PUT /{reviewId} (HTTP)\n{body: reviewSubmissionData, header: Authorization: Bearer authToken}
-activate ReviewService
+FrontendApp -> Ingress: **POST /reviews/assign/auto** (HTTPS)\n{assignmentId, minReviews}, Header: Auth: Bearer **jwt**
+activate Ingress
 
-ReviewService -> ReviewService: token = extractFromHeader(authToken)
+note right of Ingress
+  **Path-Based Routing:**
+  Path "/reviews/assign/auto" matches
+  the rule for the Review Service.
+end note
 
-group Token Decoding and Validation
-    note over ReviewService: Assumes public key already fetched.
-    ReviewService -> ReviewService: tokenInfo = decode_token_with_public_key(token)
+Ingress -> ReviewServicePod: **POST /reviews/assign/auto** (HTTP)\n{...}, Header: Auth: Bearer **jwt**
+activate ReviewServicePod
+
+' Step 1: JWT Validation and Role Check (local)
+ReviewServicePod -> ReviewServicePod: Decode token & check claims (role, exp)
+alt#LightCoral #White Invalid Token or Role != 'teacher'
+    ReviewServicePod --> Ingress: HTTP 401/403 Response
+    deactivate ReviewServicePod
+    Ingress --> FrontendApp: HTTP 401/403 Response
+    deactivate Ingress
+    FrontendApp -> Teacher: Show Error Message
+    deactivate FrontendApp
 end
 
-alt Valid Token and User Authorized (Student who is assigned)
-    ReviewService -> ReviewService: studentSerialNumber = tokenInfo["user_id"]
+' Step 2: Get assignment details to verify ownership and get student list
+ReviewServicePod -> Ingress: **GET /assignments/{assignmentId}** (HTTP)\nHeader: Auth: Bearer **jwt**
+activate Ingress
+Ingress -> AssignmentServicePod: **GET /assignments/{assignmentId}** (HTTP)
+activate AssignmentServicePod
+AssignmentServicePod --> Ingress: HTTP 200 {assignment_details} / HTTP 404/403
+deactivate AssignmentServicePod
+Ingress --> ReviewServicePod: HTTP 200 {assignment_details} / HTTP 404/403
+deactivate Ingress
 
-    ReviewService -> DBReview: findOneByReviewId(reviewId)
-    activate DBReview
-    DBReview --> ReviewService: {peerReviewAssignment} / null
-    deactivate DBReview
-
-    alt PeerReviewAssignment Found AND student is reviewer AND status is 'pending'
-        ReviewService -> ReviewService: updatedReviewData = prepareUpdatedReview(\n  peerReviewAssignment, \n  reviewSubmissionData.evaluation, \n  reviewedAt=now(), \n  status='completed')
-
-        ReviewService -> DBReview: updateOne(reviewId, updatedReviewData)
-        activate DBReview
-        DBReview --> ReviewService: {update_success_status}
-        deactivate DBReview
-
-        alt Update Successful
-            ReviewService -> ReviewService: reviewResponse = createPeerReviewResponse(updatedReviewData)
-            ReviewService --> NginxProxy: HTTP 200 OK {reviewResponse}
-        else Update Failed
-            ReviewService --> NginxProxy: HTTP 500 Internal Server Error\n{"error": "Failed to save review"}
-        end
-    else PeerReviewAssignment Not Found, Mismatch, or Not Pending
-        ReviewService --> NginxProxy: HTTP 404/403/400\n{"error": "Review issue"}
-    end
-else Invalid Token or Unauthorized
-    ReviewService --> NginxProxy: HTTP 401 Unauthorized\n{"error": "Invalid token"}
+alt#LightCoral #White Assignment Not Found or Not Owner
+    ReviewServicePod --> Ingress: HTTP 404/403 Response
+    deactivate ReviewServicePod
+    Ingress --> FrontendApp: HTTP 404/403 Response
+    FrontendApp -> Teacher: Show Error Message
+    deactivate FrontendApp
 end
 
-deactivate ReviewService
-NginxProxy --> FrontendApp: HTTP Response (200 OK or Error)
-deactivate NginxProxy
-FrontendApp -> Student: Display review submission confirmation / error
+' Step 3: Get all submissions for the assignment
+ReviewServicePod -> Ingress: **GET /submissions?assignmentId={id}** (HTTP)\nHeader: Auth: Bearer **jwt**
+activate Ingress
+Ingress -> SubmissionServicePod: **GET /submissions?assignmentId={id}** (HTTP)
+activate SubmissionServicePod
+SubmissionServicePod --> Ingress: HTTP 200 [{submission}, ...]
+deactivate SubmissionServicePod
+Ingress --> ReviewServicePod: HTTP 200 [{submission}, ...]
+deactivate Ingress
+
+alt#Gold #White No submissions found
+    note right of ReviewServicePod: If submission list is empty, stop process.
+    ReviewServicePod --> Ingress: HTTP 400\n{"error": "No submissions to review"}
+    deactivate ReviewServicePod
+    Ingress --> FrontendApp: HTTP 400 Response
+    FrontendApp -> Teacher: Show "No submissions found" message
+    deactivate FrontendApp
+end
+
+' Step 4: Internal logic to create review pairings
+group Internal Logic
+    ReviewServicePod -> ReviewServicePod: Run assignment algorithm using student list\nfrom assignment details and submission list.\n(Avoids self-review)
+end
+
+' Step 5: Save new review assignments to DB
+ReviewServicePod -> DBReview: insert_many(new_review_assignments)
+activate DBReview
+DBReview --> ReviewServicePod: {inserted_ids}
+deactivate DBReview
+
+' Step 6: Prepare and send final response
+ReviewServicePod --> Ingress: **HTTP 200 OK**\n[{createdReview}, ...]
+deactivate ReviewServicePod
+
+Ingress --> FrontendApp: **HTTPS 200 OK**\n[{createdReview}, ...]
+deactivate Ingress
+FrontendApp -> Teacher: Display confirmation of assigned reviews
 deactivate FrontendApp
 
 @enduml

@@ -1,0 +1,143 @@
+@startuml
+
+title DEPLOYMENT DIAGRAM
+
+actor User
+
+node "User's Machine" as UserMachine <<device>> {
+    component "Web Browser\n(Vue.js App runs here)" as WebBrowser <<browser>>
+}
+
+node "On-Premise Ubuntu VM" as VM <<VM>> {
+    component "Host Firewall" as Firewall <<security>>
+    
+    node "Kubernetes Cluster" as K8sCluster <<executionEnvironment>> {
+        node "MicroK8s Node(s)" as K8sNodes <<nodes>> {
+
+            ' --- INGRESS CONTROLLER: The new central entry point ---
+            component "NGINX Ingress Controller" as IngressController <<gateway>>
+            note right of IngressController
+                Acts as the single, smart entry point.
+                Routes traffic based on request paths.
+            end note
+
+            ' --- APIs and Services ---
+            component "Frontend Service\n(Type: ClusterIP)" as FrontendService <<MicroK8s Service>>
+            component "Assignment API\n(ClusterIP)" as AssignmentAPI <<MicroK8s Service>>
+            component "Review API\n(ClusterIP)" as ReviewAPI <<MicroK8s Service>>
+            component "Submission API\n(ClusterIP)" as SubmissionAPI <<MicroK8s Service>>
+            component "Report API\n(ClusterIP)" as ReportAPI <<MicroK8s Service>>
+            component "Authentication API\n(ClusterIP)" as AuthAPI <<MicroK8s Service>>
+
+            frame "Frontend Tier" {
+                node "Frontend Pod (nginx)" as FrontendPod <<pod>> {
+                    component "Nginx Container" as NginxContainer <<container>>
+                    artifact "Vue.js Build" as VueBuild <<static_files>>
+                }
+            }
+            
+            frame "Microservices Tier (Backend)" {
+                note as JWT_Validation_Note
+                    Other microservices (dotted lines)
+                    validate JWT by calling
+                    Authentication Service API.
+                end note
+            
+                node "Assignment Service Pod" as AssignmentServicePod <<pod>> {
+                    component "Assignment Service\n(Flask)" as AssignmentServiceContainer <<container>>
+                }
+                node "Review Service Pod" as ReviewServicePod <<pod>> {
+                    component "Review Service\n(Flask)" as ReviewServiceContainer <<container>>
+                }
+                node "Submission Service Pod" as SubmissionServicePod <<pod>> {
+                    component "Submission Service\n(Flask)" as SubmissionServiceContainer <<container>>
+                }
+                node "Report Service Pod" as ReportServicePod <<pod>> {
+                    component "Report Service\n(Flask)" as ReportServiceContainer <<container>>
+                }
+                node "Authentication Service Pod" as AuthServicePod <<pod>> {
+                    component "Authentication Service\n(Flask)" as AuthServiceContainer <<container>>
+                    note right of AuthServiceContainer: Provides /public_key for\nJWT validation
+                }
+            }
+
+            ' --- Data Tier and Storage ---
+            frame "Data Tier" {
+                 component "Assignment DB\n(ClusterIP)" as AssignmentDBService <<MicroK8s Service>>
+                 node "Assignment DB Pod" as AssignmentDBPod <<pod>> {
+                    database "MongoDB" as AssignmentDBContainer <<container>>
+                 }
+                 
+                 component "Submission DB\n(ClusterIP)" as SubmissionDBService <<MicroK8s Service>>
+                 node "Submission DB Pod" as SubmissionDBPod <<pod>> {
+                    database "MongoDB" as SubmissionDBContainer <<container>>
+                 }
+
+                 component "Review DB\n(ClusterIP)" as ReviewDBService <<MicroK8s Service>>
+                 node "Review DB Pod" as ReviewDBPod <<pod>> {
+                    database "MongoDB" as ReviewDBContainer <<container>>
+                 }
+                 
+                 component "Authentication DB\n(ClusterIP)" as AuthDBService <<MicroK8s Service>>
+                 node "Authentication DB Pod" as AuthDBPod <<pod>> {
+                    database "PostgreSQL" as AuthDBContainer <<container>>
+                 }
+
+                 component "MinIO Service\n(ClusterIP)" as MinIOService <<MicroK8s Service>>
+                 node "MinIO Pod" as MinIOPod <<pod>> {
+                    cloud "MinIO" as MinIOContainer <<container>>
+                    note bottom of MinIOContainer : Used for binary files
+                 }
+            }
+        }
+    }
+}
+
+
+' --- TOP LEVEL CONNECTIONS (External Traffic Flow) ---
+User -> WebBrowser : interacts
+WebBrowser -> Firewall : HTTPS/TLS
+Firewall --> IngressController
+
+' --- INGRESS ROUTING (Path-based) ---
+IngressController --> FrontendService : path: /
+IngressController --> AuthAPI : path: /auth
+IngressController --> AssignmentAPI : path: /assignments
+IngressController --> SubmissionAPI : path: /submissions
+IngressController --> ReviewAPI : path: /reviews
+IngressController --> ReportAPI : path: /reports
+
+' --- FRONTEND TIER CONNECTIONS ---
+FrontendService -down-> FrontendPod : exposes
+NginxContainer -down-> VueBuild : serves
+
+' --- BACKEND TIER CONNECTIONS (Service to Pod) ---
+AssignmentAPI -down-> AssignmentServicePod : exposes
+ReviewAPI -down-> ReviewServicePod : exposes
+SubmissionAPI -down-> SubmissionServicePod : exposes
+ReportAPI -down-> ReportServicePod : exposes
+AuthAPI -down-> AuthServicePod : exposes
+
+' --- BACKEND-TO-BACKEND CONNECTIONS (JWT Validation) ---
+AssignmentServicePod ..> AuthAPI : REST (JWT Key)
+ReviewServicePod ..> AuthAPI : REST (JWT Key)
+SubmissionServicePod ..> AuthAPI : REST (JWT Key)
+ReportServicePod ..> AuthAPI : REST (JWT Key)
+
+' --- BACKEND-TO-DATA TIER CONNECTIONS ---
+AssignmentServicePod --> AssignmentDBService : MQL
+ReviewServicePod --> ReviewDBService : MQL
+SubmissionServicePod --> SubmissionDBService : MQL
+ReportServicePod --> ReviewDBService : MQL
+AuthServicePod --> AuthDBService : SQL
+
+SubmissionServicePod --> MinIOService : S3 API (upload/download)
+
+' --- DATA TIER CONNECTIONS (Service to Pod) ---
+AssignmentDBService -down-> AssignmentDBPod : exposes
+SubmissionDBService -down-> SubmissionDBPod : exposes
+ReviewDBService -down-> ReviewDBPod : exposes
+AuthDBService -down-> AuthDBPod : exposes
+MinIOService -down-> MinIOPod : exposes
+
+@enduml
