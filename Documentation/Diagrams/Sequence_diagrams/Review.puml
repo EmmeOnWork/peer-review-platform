@@ -1,16 +1,6 @@
 @startuml
 title Sequence Diagram - Teacher Auto-Assigns Peer Reviews
 
-!theme plain
-skinparam sequence {
-    ArrowColor Black
-    ActorBorderColor Black
-    LifeLineBorderColor #555555
-    ParticipantBorderColor Black
-    BoxBorderColor #555555
-    BoxBackgroundColor #F8F8F8
-}
-
 actor Teacher
 participant "Vue.js SPA\n(in Browser)" as FrontendApp
 participant "NGINX Ingress Controller" as Ingress
