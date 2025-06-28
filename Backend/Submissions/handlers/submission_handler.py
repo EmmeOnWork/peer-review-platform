@@ -766,4 +766,3 @@ def download_attachment_for_review(token_info=None, submissionId=None, filename=
         logger.error(f"Unexpected error in download_attachment_for_review: {e}")
         return jsonify({"error": "Internal Server Error", "message": "An unexpected error occurred"}), 500
 
-# ... existing code ...

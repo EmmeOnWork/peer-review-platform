@@ -169,42 +169,19 @@
                   <label :for="`feedback-${index}`" class="feedback-label-enhanced">
                     <i class="fas fa-comment-dots"></i>
                     Feedback for "{{ criterion.criterion }}":
-                    <span class="required-indicator">*</span>
                   </label>
                   <div class="textarea-container">
                     <textarea
                       :id="`feedback-${index}`"
                       v-model="criterion.feedback"
                       class="feedback-textarea-enhanced"
-                      :class="{ 
-                        'error': !isCompleted && criterion.score > 0 && (!criterion.feedback || criterion.feedback.trim().length === 0),
-                        'warning': !isCompleted && criterion.score === 0
-                      }"
-                      :placeholder="isCompleted ? 'No feedback provided' : 'Write constructive and specific feedback... (Required)'"
+                      :placeholder="isCompleted ? 'No feedback provided' : 'Write constructive and specific feedback...'"
                       rows="3"
                       :disabled="isCompleted"
-                      required
                     ></textarea>
                     <div class="character-counter">
                       {{ criterion.feedback?.length || 0 }} characters
-                      <span v-if="!isCompleted && (!criterion.feedback || criterion.feedback.trim().length === 0)" class="required-text">
-                        (Required)
-                      </span>
                     </div>
-                  </div>
-                  
-                  <!-- Messaggio di errore -->
-                  <div v-if="!isCompleted && criterion.score > 0 && (!criterion.feedback || criterion.feedback.trim().length === 0)" 
-                       class="validation-error">
-                  <i class="fas fa-exclamation-circle"></i>
-                  Feedback is required when assigning a score
-                  </div>
-                  
-                  <!-- Avviso per score 0 -->
-                  <div v-if="!isCompleted && criterion.score === 0" 
-                       class="validation-warning">
-                  <i class="fas fa-info-circle"></i>
-                  Please assign a score and provide feedback
                   </div>
                 </div>
               </div>
@@ -222,13 +199,7 @@
                 {{ submitting ? 'Submitting...' : 'Submit Peer Review' }}
               </button>
               <p class="submit-note">
-                <span v-if="!isFormValid" class="validation-message">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  Please assign scores greater than 0 and provide feedback for all criteria before submitting.
-                </span>
-                <span v-else>
-                  Once submitted, the peer review can no longer be edited.
-                </span>
+                Once submitted, the peer review can no longer be edited.
               </p>
             </div>
           </form>
@@ -854,85 +825,402 @@ export default {
 }
 
 .submit-btn:disabled {
-  background: #95a5a6;
+  background: #6c757d;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-  opacity: 0.6;
 }
 
-/* Indicatore campo obbligatorio */
-.required-indicator {
-  color: #e53e3e;
-  font-weight: bold;
-  margin-left: 4px;
+.submit-note {
+  color: #6c757d;
+  font-size: 14px;
+  font-style: italic;
+  margin: 0;
 }
 
-/* Stili per i campi con errore */
-.feedback-textarea-enhanced.error {
-  border-color: #e53e3e;
-  background: #fff5f5;
+/* Design formale e moderno */
+.criteria-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 25px;
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  border-radius: 12px;
+  color: white;
+  box-shadow: 0 4px 20px rgba(44, 62, 80, 0.15);
 }
 
-.feedback-textarea-enhanced.error:focus {
-  border-color: #e53e3e;
-  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
+.criteria-header h3 {
+  margin: 0;
+  color: white;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
-.feedback-textarea-enhanced.warning {
-  border-color: #dd6b20;
-  background: #fffaf0;
-}
-
-/* Messaggi di validazione */
-.validation-error {
+.progress-indicator {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
-  border-radius: 6px;
-  color: #c53030;
-  font-size: 13px;
-  font-weight: 500;
+  gap: 12px;
 }
 
-.validation-warning {
+.progress-bar {
+  width: 140px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3498db, #2980b9);
+  transition: width 0.4s ease;
+  border-radius: 3px;
+}
+
+.progress-text {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.criteria-description {
+  background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
+  color: #2c3e50;
+  padding: 18px 24px;
+  border-radius: 10px;
+  margin-bottom: 25px;
+  font-style: normal;
+  border-left: 4px solid #3498db;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.criteria-description i {
+  margin-right: 8px;
+  color: #3498db;
+}
+
+.criterion-card {
+  margin-bottom: 24px;
+  padding: 28px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e8eaed;
+  transition: all 0.3s ease;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.criterion-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3498db, #2980b9);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+  border-radius: 12px 12px 0 0;
+}
+
+.criterion-card:hover::before,
+.criterion-card.completed::before {
+  transform: scaleX(1);
+}
+
+.criterion-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  border-color: #3498db;
+}
+
+.criterion-header-enhanced {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: #fffaf0;
-  border: 1px solid #fbd38d;
-  border-radius: 6px;
-  color: #d69e2e;
-  font-size: 13px;
-  font-weight: 500;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
 }
 
-.validation-message {
-  color: #d69e2e;
-  font-weight: 500;
+.criterion-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.criterion-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
 }
 
-.required-text {
+.criterion-icon.score-low {
+  background: #fff5f5;
+  border-color: #fed7d7;
   color: #e53e3e;
-  font-weight: 600;
 }
 
-/* Miglioramento del button submit */
+.criterion-icon.score-medium {
+  background: #fffaf0;
+  border-color: #fbd38d;
+  color: #dd6b20;
+}
+
+.criterion-icon.score-high {
+  background: #ebf8ff;
+  border-color: #90cdf4;
+  color: #3182ce;
+}
+
+.criterion-icon.score-excellent {
+  background: #f0fff4;
+  border-color: #9ae6b4;
+  color: #38a169;
+}
+
+.criterion-label-enhanced {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 17px;
+  margin-bottom: 6px;
+  display: block;
+  line-height: 1.3;
+}
+
+.score-badge {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border: 1px solid;
+}
+
+.score-badge.score-low {
+  background: #fff5f5;
+  color: #c53030;
+  border-color: #fed7d7;
+}
+
+.score-badge.score-medium {
+  background: #fffaf0;
+  color: #d69e2e;
+  border-color: #fbd38d;
+}
+
+.score-badge.score-high {
+  background: #ebf8ff;
+  color: #3182ce;
+  border-color: #90cdf4;
+}
+
+.score-badge.score-excellent {
+  background: #f0fff4;
+  color: #38a169;
+  border-color: #9ae6b4;
+}
+
+.score-display-enhanced {
+  text-align: right;
+}
+
+.score-value-large {
+  font-size: 32px;
+  font-weight: 700;
+  transition: color 0.3s ease;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.score-value-large.score-low {
+  color: #e53e3e;
+}
+
+.score-value-large.score-medium {
+  color: #dd6b20;
+}
+
+.score-value-large.score-high {
+  color: #3182ce;
+}
+
+.score-value-large.score-excellent {
+  color: #38a169;
+}
+
+.score-input-enhanced {
+  margin-bottom: 24px;
+}
+
+.slider-container {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.score-slider-enhanced {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: transparent;
+  outline: none;
+  position: relative;
+  z-index: 2;
+}
+
+.score-slider-enhanced::-webkit-slider-thumb {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(52, 152, 219, 0.2);
+  border: 2px solid #3498db;
+  transition: all 0.2s ease;
+}
+
+.score-slider-enhanced::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.slider-track {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 8px;
+  border-radius: 4px;
+  transform: translateY(-50%);
+  z-index: 1;
+  background: #e2e8f0;
+}
+
+.score-labels-enhanced {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.label-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11px;
+  color: #718096;
+  font-weight: 500;
+}
+
+.label-item i {
+  font-size: 14px;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.feedback-input-enhanced {
+  margin-top: 24px;
+}
+
+.feedback-label-enhanced {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.feedback-label-enhanced i {
+  margin-right: 8px;
+  color: #4a5568;
+}
+
+.textarea-container {
+  position: relative;
+}
+
+.feedback-textarea-enhanced {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 90px;
+  transition: all 0.2s ease;
+  background: #fafafa;
+}
+
+.feedback-textarea-enhanced:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  background: white;
+}
+
+.character-counter {
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  font-size: 11px;
+  color: #a0aec0;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Utility classes con colori più formali */
+.text-danger { color: #e53e3e !important; }
+.text-warning { color: #dd6b20 !important; }
+.text-info { color: #3182ce !important; }
+.text-success { color: #38a169 !important; }
+
+/* Animazioni più sottili */
+@keyframes subtlePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+.criterion-card.completed .criterion-icon {
+  animation: subtlePulse 3s infinite;
+}
+
+/* Miglioramenti per il submit button */
+.submit-btn {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: white;
+  border: none;
+  padding: 16px 32px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 12px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 12px rgba(44, 62, 80, 0.15);
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(44, 62, 80, 0.2);
+}
+
 .submit-btn:disabled {
   background: #95a5a6;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
-  opacity: 0.6;
 }
 </style>
