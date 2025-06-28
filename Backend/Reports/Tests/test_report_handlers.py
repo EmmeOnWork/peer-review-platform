@@ -101,7 +101,7 @@ def test_get_student_report_success(app_instance, monkeypatch):
     with app_instance.test_request_context(headers={'Authorization': 'Bearer mocktoken'}):
         with patch("handlers.report.requests.get") as mock_get:
             mock_get.side_effect = [
-                MagicMock(status_code=200, json=lambda: assignment_data),   # Assignment
+                MagicMock(status_code=200, json=lambda: assignment_data),   # Assignments
                 MagicMock(status_code=200, json=lambda: submissions_data),  # Submissions/mine
                 MagicMock(status_code=200, json=lambda: reviews_data),      # Reviews/assignment
             ]
