@@ -1,0 +1,12 @@
+# Keys and local secrets -- never commit
+private.pem
+*.key
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node
+node_modules/
